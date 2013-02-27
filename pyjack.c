@@ -42,6 +42,8 @@ TODO's:
 /* Uncomment the next line if you have Jack2 */
 // #define JACK2 1
 
+/* Uncomment the next line for callbacks */
+#define JMZ
 
 #define PYJACK_MAX_PORTS 256
 #define W 0
