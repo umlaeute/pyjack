@@ -34,7 +34,11 @@ setup(
     author = "Andrew W. Schmeder, falkTX",
     author_email = "andy@a2hd.com",
     url = "http://www.a2hd.com/software",
-
+    long_description = '''PyJack is a module written in C which exposes the Jack API to Python.
+For information about Jack see http://jackit.sourceforge.net.  This
+enables a Python program to connect to and interact with pro-audio
+applications which use the Jack Audio Server''',
+    license = "GNU GPL2",
     ext_modules = [Extension("jack", ["pyjack.c"], libraries=["jack", "dl"], include_dirs=numpy_include_dirs)],
     )
 
