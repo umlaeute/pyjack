@@ -1400,7 +1400,6 @@ Client_init(PyObject *self, PyObject *args, PyObject *kwds)
 static void
 Client_dealloc(PyObject* self)
 {
-puts("pyjack: dealloc");
     detach(self, Py_None);
     self->ob_type->tp_free(self);
 }
