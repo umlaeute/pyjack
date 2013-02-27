@@ -1292,33 +1292,6 @@ static PyObject* set_sync_timeout(PyObject* self, PyObject* args)
 }
 
 #ifdef JMZ
-#if 0
-static PyObject* set_thread_init_callback(PyObject* self, PyObject* args)
-{
-    PyObject *result = NULL;
-    PyObject *temp = NULL;
-    pyjack_client_t * client = self_or_global_client(self);
-    if(client->pjc == NULL) {
-        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
-        return result;
-    }
-
-    if (PyArg_ParseTuple(args, "O:set_thread_init_callback", &temp)) {
-        if (!PyCallable_Check(temp)) {
-            PyErr_SetString(PyExc_TypeError, "parameter must be callable");
-            return result;
-        }
-        Py_XINCREF(temp);         /* Add a reference to new callback */
-        Py_XDECREF(client->callback_thread_init);  /* Dispose of previous callback */
-        client->callback_thread_init = temp;       /* Remember new callback */
-        /* Boilerplate to return "None" */
-        Py_INCREF(Py_None);
-        result = Py_None;
-    }
-
-    return result;
-}
-#endif
 #define ADD_SETCALLBACK(x) \
   static PyObject* set_##x##_callback(PyObject* self, PyObject* args) { \
     PyObject *result = NULL;                                            \
@@ -1328,7 +1301,6 @@ static PyObject* set_thread_init_callback(PyObject* self, PyObject* args)
       PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established."); \
       return result;                                                    \
     }                                                                   \
-                                                                        \
     if (PyArg_ParseTuple(args, "O:"#x"_callback", &temp)) {             \
       if (!PyCallable_Check(temp)) {                                    \
         PyErr_SetString(PyExc_TypeError, "parameter must be callable"); \
