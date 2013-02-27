@@ -98,16 +98,10 @@ pyjack_client_t * self_or_global_client(PyObject * self) {
 
 // Initialize global data
 void pyjack_init(pyjack_client_t * client) {
-    client->pjc = NULL;
-    client->active = 0;
-    client->iosync = 0;
-    client->num_inputs = 0;
-    client->num_outputs = 0;
-    client->input_pipe[R] = 0;
-    client->input_pipe[W] = 0;
-    client->output_pipe[R] = 0;
-    client->output_pipe[W] = 0;
-
+    // Init everything to to null...
+    size_t headsize=(void*)(&client->pjc)-(void*)(client);
+    size_t size=sizeof(*client)-headsize;
+    memset((void*)(client)+headsize, 0, size );
     // Initialize unamed, raw datagram-type sockets...
     if (socketpair(PF_UNIX, SOCK_DGRAM, 0, client->input_pipe) == -1) {
         printf("ERROR: Failed to create socketpair input_pipe!!\n");
@@ -126,14 +120,6 @@ void pyjack_init(pyjack_client_t * client) {
     FD_ZERO(&client->output_rfd);
     FD_SET(client->input_pipe[R], &client->input_rfd);
     FD_SET(client->output_pipe[R], &client->output_rfd);
-
-    // Init buffers to null...
-    client->input_buffer_size = 0;
-    client->output_buffer_size = 0;
-    client->input_buffer_0 = NULL;
-    client->output_buffer_0 = NULL;
-    client->input_buffer_1 = NULL;
-    client->output_buffer_1 = NULL;
 }
 
 static void free_and_reset(float ** pointer)
