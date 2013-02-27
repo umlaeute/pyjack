@@ -74,7 +74,16 @@ typedef struct {
     int            event_hangup;                    // true when client got hangup signal
     int            active;                          // indicates if the client is currently process-enabled
 #ifdef JMZ
-    PyObject *     callback_thread_init;            // callback when the thread has been initialized
+    PyObject *     callback_buffer_size; // callback whenever the size of the the buffer is about to change
+    PyObject *     callback_client_registration; // callback whenever a port is registered or unregistered
+    PyObject *     callback_freewheel; // callback whenever we enter or leave "freewheel" mode
+    PyObject *     callback_graph_order; // callback whenever the processing graph is reordered
+    PyObject *     callback_latency; // callback whenever it is necessary to recompute the latencies for some or all Jack ports.
+    PyObject *     callback_port_connect; // callback whenever a port is connected or disconnected
+    PyObject *     callback_port_registration; // callback whenever a port is registered or unregistered
+    PyObject *     callback_sample_rate; // callback whenever the system sample rate changes
+    PyObject *     callback_thread_init; // callback when the thread has been initialized
+    PyObject *     callback_xrun; // callback whenever there is an xrun
 #endif /* JMZ */
 } pyjack_client_t;
 
@@ -235,6 +244,16 @@ int pyjack_process(jack_nframes_t n, void* arg) {
 int pyjack_buffer_size_changed(jack_nframes_t n, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_buffer_size = 1;
+#ifdef JMZ
+    if(client->callback_buffer_size) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(I)", n);
+      result = PyObject_CallObject(client->callback_buffer_size, arglist);
+      Py_DECREF(arglist);
+      if (result != NULL) // LATER: shouldn't we pass the result to jack?
+          Py_DECREF(result);
+    }
+#endif
     return 0;
 }
 
@@ -242,6 +261,16 @@ int pyjack_buffer_size_changed(jack_nframes_t n, void* arg) {
 int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_sample_rate = 1;
+#ifdef JMZ
+    if(client->callback_sample_rate) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(I)", n);
+      result = PyObject_CallObject(client->callback_sample_rate, arglist);
+      Py_DECREF(arglist);
+      if (result != NULL) // LATER: shouldn't we pass the result to jack?
+          Py_DECREF(result);
+    }
+#endif
     return 0;
 }
 
@@ -249,6 +278,14 @@ int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
 int pyjack_graph_order(void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_graph_ordering = 1;
+#ifdef JMZ
+    if(client->callback_graph_order) {
+      PyObject *result = NULL;
+      result = PyObject_CallObject(client->callback_graph_order, NULL);
+      if (result != NULL) // LATER: shouldn't we pass the result to jack?
+          Py_DECREF(result);
+    }
+#endif
     return 0;
 }
 
@@ -256,6 +293,14 @@ int pyjack_graph_order(void* arg) {
 int pyjack_xrun(void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_xrun = 1;
+#ifdef JMZ
+    if(client->callback_xrun) {
+      PyObject *result = NULL;
+      result = PyObject_CallObject(client->callback_xrun, NULL);
+      if (result != NULL) // LATER: shouldn't we pass the result to jack?
+          Py_DECREF(result);
+    }
+#endif
     return 0;
 }
 
@@ -263,6 +308,16 @@ int pyjack_xrun(void* arg) {
 void pyjack_port_registration(jack_port_id_t pid, int action, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_port_registration = 1;
+#ifdef JMZ
+    if(client->callback_port_registration) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(Ii)", pid, action);
+      result = PyObject_CallObject(client->callback_port_registration, arglist);
+      Py_DECREF(arglist);
+      if (result != NULL)
+          Py_DECREF(result);
+    }
+#endif
 }
 
 // Shutdown handler
@@ -281,12 +336,60 @@ void pyjack_hangup(int signal) {
 
 
 #ifdef JMZ
-void pyjack_thread_init(void* arg)
+static void pyjack_thread_init(void* arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     if(client && client->callback_thread_init) {
       PyObject *result = NULL;
       result = PyObject_CallObject(client->callback_thread_init, NULL);
+      if (result != NULL)
+          Py_DECREF(result);
+    }
+}
+static void pyjack_client_registration(const char *name, int reg, void *arg)
+{
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    if(client && client->callback_client_registration) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(si)", name, reg);
+      result = PyObject_CallObject(client->callback_client_registration, arglist);
+      Py_DECREF(arglist);
+      if (result != NULL)
+          Py_DECREF(result);
+    }
+}
+static void pyjack_freewheel(int starting, void *arg)
+{
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    if(client && client->callback_freewheel) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(i)", starting);
+      result = PyObject_CallObject(client->callback_freewheel, arglist);
+      Py_DECREF(arglist);
+      if (result != NULL)
+          Py_DECREF(result);
+    }
+}
+static void pyjack_latency(jack_latency_callback_mode_t mode, void *arg)
+{
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    if(client && client->callback_latency) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(i)", (int)mode);
+      result = PyObject_CallObject(client->callback_latency, arglist);
+      Py_DECREF(arglist);
+      if (result != NULL) // LATER: shouldn't we pass the result to jack?
+          Py_DECREF(result);
+    }
+}
+static void pyjack_port_connect(jack_port_id_t a, jack_port_id_t b, int connect, void *arg)
+{
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    if(client && client->callback_port_connect) {
+      PyObject *result = NULL;
+      PyObject *arglist= Py_BuildValue("(II)", a, b);
+      result = PyObject_CallObject(client->callback_port_connect, arglist);
+      Py_DECREF(arglist);
       if (result != NULL)
           Py_DECREF(result);
     }
@@ -359,6 +462,23 @@ static PyObject* attach(PyObject* self, PyObject* args)
 #ifdef JMZ
     if(jack_set_thread_init_callback(client->pjc, pyjack_thread_init, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack thread-init callback.");
+        return NULL;
+    }
+
+    if(jack_set_client_registration_callback(client->pjc, pyjack_client_registration, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack client-registraion callback.");
+        return NULL;
+    }
+    if(jack_set_freewheel_callback(client->pjc, pyjack_freewheel, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack freewheel callback.");
+        return NULL;
+    }
+    if(jack_set_latency_callback(client->pjc, pyjack_latency, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack latency callback.");
+        return NULL;
+    }
+    if(jack_set_port_connect_callback(client->pjc, pyjack_port_connect, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack port-connect callback.");
         return NULL;
     }
 #endif
@@ -1191,8 +1311,7 @@ static PyObject* set_thread_init_callback(PyObject* self, PyObject* args)
 }
 #endif
 #define ADD_SETCALLBACK(x) \
-  static PyObject* set_##x##_callback(PyObject* self, PyObject* args) \
-  {                                                                     \
+  static PyObject* set_##x##_callback(PyObject* self, PyObject* args) { \
     PyObject *result = NULL;                                            \
     PyObject *temp = NULL;                                              \
     pyjack_client_t * client = self_or_global_client(self);             \
@@ -1213,20 +1332,18 @@ static PyObject* set_thread_init_callback(PyObject* self, PyObject* args)
       Py_INCREF(Py_None);                                               \
       result = Py_None;                                                 \
     }                                                                   \
-                                                                        \
     return result;                                                      \
   }
 ADD_SETCALLBACK(thread_init);
-//ADD_SETCALLBACK(process);
-//ADD_SETCALLBACK(freewheel);
-//ADD_SETCALLBACK(buffer_size);
-//ADD_SETCALLBACK(sample_rate);
-//ADD_SETCALLBACK(client_registration);
-//ADD_SETCALLBACK(port_registration);
-//ADD_SETCALLBACK(port_connect);
-//ADD_SETCALLBACK(graph_order);
-//ADD_SETCALLBACK(xrun);
-//ADD_SETCALLBACK(latency);
+ADD_SETCALLBACK(freewheel);
+ADD_SETCALLBACK(buffer_size);
+ADD_SETCALLBACK(sample_rate);
+ADD_SETCALLBACK(client_registration);
+ADD_SETCALLBACK(port_registration);
+ADD_SETCALLBACK(port_connect);
+ADD_SETCALLBACK(graph_order);
+ADD_SETCALLBACK(xrun);
+ADD_SETCALLBACK(latency);
 
 #endif /* JMZ */
 
@@ -1273,8 +1390,6 @@ static PyMethodDef pyjack_methods[] = {
   //  {"on_shutdown",                     on_shutdown,                     METH_VARARGS, "on_shutdown():\n "},
   //  {"on_info_shutdown",                on_info_shutdown,                METH_VARARGS, "on_info_shutdown():\n "},
   {"set_thread_init_callback",         set_thread_init_callback,         METH_VARARGS, "set_thread_init_callback():\n "},
-#if 0
-  {"set_process_callback",             set_process_callback,             METH_VARARGS, "set_process_callback():\n "},
   {"set_freewheel_callback",           set_freewheel_callback,           METH_VARARGS, "set_freewheel_callback():\n "},
   {"set_buffer_size_callback",         set_buffer_size_callback,         METH_VARARGS, "set_buffer_size_callback():\n "},
   {"set_sample_rate_callback",         set_sample_rate_callback,         METH_VARARGS, "set_sample_rate_callback():\n "},
@@ -1284,7 +1399,6 @@ static PyMethodDef pyjack_methods[] = {
   {"set_graph_order_callback",         set_graph_order_callback,         METH_VARARGS, "set_graph_order_callback():\n "},
   {"set_xrun_callback",                set_xrun_callback,                METH_VARARGS, "set_xrun_callback():\n "},
   {"set_latency_callback",             set_latency_callback,             METH_VARARGS, "set_latency_callback():\n "},
-#endif
 #endif /* JMZ */
   {NULL, NULL}
 };
