@@ -451,11 +451,6 @@ static PyObject* attach(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    if(jack_set_sample_rate_callback(client->pjc, pyjack_sample_rate_changed, client) != 0) {
-        PyErr_SetString(JackError, "Failed to set jack sample rate callback.");
-        return NULL;
-    }
-
     if(jack_set_port_registration_callback(client->pjc, pyjack_port_registration, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack port registration callback.");
         return NULL;
@@ -1320,7 +1315,6 @@ static PyObject* set_sync_timeout(PyObject* self, PyObject* args)
 ADD_SETCALLBACK(thread_init);
 ADD_SETCALLBACK(freewheel);
 ADD_SETCALLBACK(buffer_size);
-ADD_SETCALLBACK(sample_rate);
 ADD_SETCALLBACK(client_registration);
 ADD_SETCALLBACK(port_registration);
 ADD_SETCALLBACK(port_connect);
@@ -1375,7 +1369,6 @@ static PyMethodDef pyjack_methods[] = {
   {"set_thread_init_callback",         set_thread_init_callback,         METH_VARARGS, "set_thread_init_callback():\n "},
   {"set_freewheel_callback",           set_freewheel_callback,           METH_VARARGS, "set_freewheel_callback():\n "},
   {"set_buffer_size_callback",         set_buffer_size_callback,         METH_VARARGS, "set_buffer_size_callback():\n "},
-  {"set_sample_rate_callback",         set_sample_rate_callback,         METH_VARARGS, "set_sample_rate_callback():\n "},
   {"set_client_registration_callback", set_client_registration_callback, METH_VARARGS, "set_client_registration_callback():\n "},
   {"set_port_registration_callback",   set_port_registration_callback,   METH_VARARGS, "set_port_registration_callback():\n "},
   {"set_port_connect_callback",        set_port_connect_callback,        METH_VARARGS, "set_port_connect_callback():\n "},
