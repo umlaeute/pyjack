@@ -76,6 +76,8 @@ typedef struct {
     int            event_hangup;                    // true when client got hangup signal
     int            active;                          // indicates if the client is currently process-enabled
 
+    int            doProcessing;                    // indicates whether the process-callback should be enabled
+
     PyObject *     callback_buffer_size; // callback whenever the size of the the buffer is about to change
     PyObject *     callback_client_registration; // callback whenever a port is registered or unregistered
     PyObject *     callback_freewheel; // callback whenever we enter or leave "freewheel" mode
@@ -101,6 +103,7 @@ void pyjack_init(pyjack_client_t * client) {
     size_t headsize=(void*)(&client->pjc)-(void*)(client);
     size_t size=sizeof(*client)-headsize;
     memset((void*)(client)+headsize, 0, size );
+
     // Initialize unamed, raw datagram-type sockets...
     if (socketpair(PF_UNIX, SOCK_DGRAM, 0, client->input_pipe) == -1) {
         printf("ERROR: Failed to create socketpair input_pipe!!\n");
@@ -119,6 +122,8 @@ void pyjack_init(pyjack_client_t * client) {
     FD_ZERO(&client->output_rfd);
     FD_SET(client->input_pipe[R], &client->input_rfd);
     FD_SET(client->output_pipe[R], &client->output_rfd);
+
+    client->doProcessing=1;
 }
 
 static void free_and_reset(float ** pointer)
@@ -426,7 +431,7 @@ static PyObject* attach(PyObject* self, PyObject* args)
     jack_on_shutdown(client->pjc, pyjack_shutdown, client);
     signal(SIGHUP, pyjack_hangup); // TODO: This just works with global clients
 
-    if(jack_set_process_callback(client->pjc, pyjack_process, client) != 0) {
+    if(client->doProcessing && jack_set_process_callback(client->pjc, pyjack_process, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack process callback.");
         return NULL;
     }
@@ -1367,9 +1372,9 @@ static PyMethodDef pyjack_methods[] = {
 static PyObject *
 Client_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    pyjack_client_t *self = (pyjack_client_t *)type->tp_alloc(type, 0);
+    pyjack_client_t *self = NULL;
+    self = (pyjack_client_t *)type->tp_alloc(type, 0);
     if (self == NULL) return NULL;
-
     pyjack_init(self);
 
     return (PyObject *)self;
@@ -1379,6 +1384,13 @@ static int
 Client_init(PyObject *self, PyObject *args, PyObject *kwds)
 {	
     int status = 0;
+    pyjack_client_t * client = self_or_global_client(self);
+    static char *kwlist[] = {"name", "processing", NULL};
+    char*name;
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "s|i", kwlist,
+                                      &name, // dummy to keep the parser happy
+                                      &client->doProcessing))
+      return -1;
     if (!attach(self, args)) status = -1;
     return status;
 }
