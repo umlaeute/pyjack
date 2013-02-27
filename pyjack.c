@@ -280,10 +280,12 @@ int pyjack_graph_order(void* arg) {
     client->event_graph_ordering = 1;
 #ifdef JMZ
     if(client->callback_graph_order) {
+      PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
       result = PyObject_CallObject(client->callback_graph_order, NULL);
       if (result != NULL) // LATER: shouldn't we pass the result to jack?
           Py_DECREF(result);
+      PyGILState_Release(state);
     }
 #endif
     return 0;
@@ -310,12 +312,14 @@ void pyjack_port_registration(jack_port_id_t pid, int action, void* arg) {
     client->event_port_registration = 1;
 #ifdef JMZ
     if(client->callback_port_registration) {
+      PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
       PyObject *arglist= Py_BuildValue("(Ii)", pid, action);
       result = PyObject_CallObject(client->callback_port_registration, arglist);
       Py_DECREF(arglist);
       if (result != NULL)
           Py_DECREF(result);
+      PyGILState_Release(state);
     }
 #endif
 }
@@ -336,7 +340,7 @@ void pyjack_hangup(int signal) {
 
 
 #ifdef JMZ
-static void pyjack_thread_init(void* arg)
+void pyjack_thread_init(void* arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     if(client && client->callback_thread_init) {
@@ -350,12 +354,14 @@ static void pyjack_client_registration(const char *name, int reg, void *arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     if(client && client->callback_client_registration) {
+      PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
       PyObject *arglist= Py_BuildValue("(si)", name, reg);
       result = PyObject_CallObject(client->callback_client_registration, arglist);
       Py_DECREF(arglist);
       if (result != NULL)
           Py_DECREF(result);
+      PyGILState_Release(state);
     }
 }
 static void pyjack_freewheel(int starting, void *arg)
@@ -382,16 +388,19 @@ static void pyjack_latency(jack_latency_callback_mode_t mode, void *arg)
           Py_DECREF(result);
     }
 }
-static void pyjack_port_connect(jack_port_id_t a, jack_port_id_t b, int connect, void *arg)
+void pyjack_port_connect(jack_port_id_t a, jack_port_id_t b, int connect, void *arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     if(client && client->callback_port_connect) {
+      PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
-      PyObject *arglist= Py_BuildValue("(II)", a, b);
+      PyObject *arglist= NULL;
+      arglist= Py_BuildValue("(IIi)", (unsigned int)a, (unsigned int)b, connect);
       result = PyObject_CallObject(client->callback_port_connect, arglist);
       Py_DECREF(arglist);
       if (result != NULL)
           Py_DECREF(result);
+      PyGILState_Release(state);
     }
 }
 #endif /* JMZ */
@@ -1398,7 +1407,7 @@ static PyMethodDef pyjack_methods[] = {
   {"set_port_connect_callback",        set_port_connect_callback,        METH_VARARGS, "set_port_connect_callback():\n "},
   {"set_graph_order_callback",         set_graph_order_callback,         METH_VARARGS, "set_graph_order_callback():\n "},
   {"set_xrun_callback",                set_xrun_callback,                METH_VARARGS, "set_xrun_callback():\n "},
-  {"set_latency_callback",             set_latency_callback,             METH_VARARGS, "set_latency_callback():\n "},
+  //{"set_latency_callback",             set_latency_callback,             METH_VARARGS, "set_latency_callback():\n "},
 #endif /* JMZ */
   {NULL, NULL}
 };
