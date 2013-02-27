@@ -73,6 +73,9 @@ typedef struct {
     int            event_shutdown;                  // true when the jack server is shutdown
     int            event_hangup;                    // true when client got hangup signal
     int            active;                          // indicates if the client is currently process-enabled
+#ifdef JMZ
+    PyObject *     callback_thread_init;            // callback when the thread has been initialized
+#endif /* JMZ */
 } pyjack_client_t;
 
 pyjack_client_t global_client;
@@ -276,6 +279,21 @@ void pyjack_hangup(int signal) {
     global_client.pjc = NULL;
 }
 
+
+#ifdef JMZ
+void pyjack_thread_init(void* arg)
+{
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    if(client && client->callback_thread_init) {
+      PyObject *result = NULL;
+      result = PyObject_CallObject(client->callback_thread_init, NULL);
+      if (result != NULL)
+          Py_DECREF(result);
+    }
+}
+#endif /* JMZ */
+
+
 // ------------- Python module stuff ---------------------
 
 // Module exception object
@@ -338,6 +356,12 @@ static PyObject* attach(PyObject* self, PyObject* args)
         PyErr_SetString(JackError, "Failed to set jack xrun callback.");
         return NULL;
     }
+#ifdef JMZ
+    if(jack_set_thread_init_callback(client->pjc, pyjack_thread_init, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack thread-init callback.");
+        return NULL;
+    }
+#endif
 
     // Get buffer size
     client->buffer_size = jack_get_buffer_size(client->pjc);
@@ -1138,6 +1162,73 @@ static PyObject* set_sync_timeout(PyObject* self, PyObject* args)
     return Py_None;
 }
 
+#ifdef JMZ
+#if 0
+static PyObject* set_thread_init_callback(PyObject* self, PyObject* args)
+{
+    PyObject *result = NULL;
+    PyObject *temp = NULL;
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return result;
+    }
+
+    if (PyArg_ParseTuple(args, "O:set_thread_init_callback", &temp)) {
+        if (!PyCallable_Check(temp)) {
+            PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+            return result;
+        }
+        Py_XINCREF(temp);         /* Add a reference to new callback */
+        Py_XDECREF(client->callback_thread_init);  /* Dispose of previous callback */
+        client->callback_thread_init = temp;       /* Remember new callback */
+        /* Boilerplate to return "None" */
+        Py_INCREF(Py_None);
+        result = Py_None;
+    }
+
+    return result;
+}
+#endif
+#define ADD_SETCALLBACK(x) \
+  static PyObject* set_##x##_callback(PyObject* self, PyObject* args) \
+  {                                                                     \
+    PyObject *result = NULL;                                            \
+    PyObject *temp = NULL;                                              \
+    pyjack_client_t * client = self_or_global_client(self);             \
+    if(client->pjc == NULL) {                                           \
+      PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established."); \
+      return result;                                                    \
+    }                                                                   \
+                                                                        \
+    if (PyArg_ParseTuple(args, "O:"#x"_callback", &temp)) {             \
+      if (!PyCallable_Check(temp)) {                                    \
+        PyErr_SetString(PyExc_TypeError, "parameter must be callable"); \
+        return result;                                                  \
+      }                                                                 \
+      Py_XINCREF(temp);         /* Add a reference to new callback */   \
+      Py_XDECREF(client->callback_##x);  /* Dispose of previous callback */ \
+      client->callback_##x = temp;       /* Remember new callback */ \
+      /* Boilerplate to return "None" */                                \
+      Py_INCREF(Py_None);                                               \
+      result = Py_None;                                                 \
+    }                                                                   \
+                                                                        \
+    return result;                                                      \
+  }
+ADD_SETCALLBACK(thread_init);
+//ADD_SETCALLBACK(process);
+//ADD_SETCALLBACK(freewheel);
+//ADD_SETCALLBACK(buffer_size);
+//ADD_SETCALLBACK(sample_rate);
+//ADD_SETCALLBACK(client_registration);
+//ADD_SETCALLBACK(port_registration);
+//ADD_SETCALLBACK(port_connect);
+//ADD_SETCALLBACK(graph_order);
+//ADD_SETCALLBACK(xrun);
+//ADD_SETCALLBACK(latency);
+
+#endif /* JMZ */
 
 // Python Module definition ---------------------------------------------------
 
@@ -1178,6 +1269,23 @@ static PyMethodDef pyjack_methods[] = {
   {"port_is_mine",       port_is_mine,            METH_VARARGS, "port_is_mine(port):\n  Returns 1 if port belongs to the running client"},
   {"set_buffer_size",    set_buffer_size,         METH_VARARGS, "set_buffer_size(size):\n  Sets Jack Buffer Size (minimum appears to be 16)."},
   {"set_sync_timeout",   set_sync_timeout,        METH_VARARGS, "set_sync_timeout(time):\n  Sets the delay (in microseconds) before the timeout expires."},
+#ifdef JMZ
+  //  {"on_shutdown",                     on_shutdown,                     METH_VARARGS, "on_shutdown():\n "},
+  //  {"on_info_shutdown",                on_info_shutdown,                METH_VARARGS, "on_info_shutdown():\n "},
+  {"set_thread_init_callback",         set_thread_init_callback,         METH_VARARGS, "set_thread_init_callback():\n "},
+#if 0
+  {"set_process_callback",             set_process_callback,             METH_VARARGS, "set_process_callback():\n "},
+  {"set_freewheel_callback",           set_freewheel_callback,           METH_VARARGS, "set_freewheel_callback():\n "},
+  {"set_buffer_size_callback",         set_buffer_size_callback,         METH_VARARGS, "set_buffer_size_callback():\n "},
+  {"set_sample_rate_callback",         set_sample_rate_callback,         METH_VARARGS, "set_sample_rate_callback():\n "},
+  {"set_client_registration_callback", set_client_registration_callback, METH_VARARGS, "set_client_registration_callback():\n "},
+  {"set_port_registration_callback",   set_port_registration_callback,   METH_VARARGS, "set_port_registration_callback():\n "},
+  {"set_port_connect_callback",        set_port_connect_callback,        METH_VARARGS, "set_port_connect_callback():\n "},
+  {"set_graph_order_callback",         set_graph_order_callback,         METH_VARARGS, "set_graph_order_callback():\n "},
+  {"set_xrun_callback",                set_xrun_callback,                METH_VARARGS, "set_xrun_callback():\n "},
+  {"set_latency_callback",             set_latency_callback,             METH_VARARGS, "set_latency_callback():\n "},
+#endif
+#endif /* JMZ */
   {NULL, NULL}
 };
 
