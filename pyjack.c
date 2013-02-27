@@ -372,12 +372,14 @@ static void pyjack_freewheel(int starting, void *arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     if(client && client->callback_freewheel) {
+      PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
       PyObject *arglist= Py_BuildValue("(i)", starting);
       result = PyObject_CallObject(client->callback_freewheel, arglist);
       Py_DECREF(arglist);
       if (result != NULL)
           Py_DECREF(result);
+      PyGILState_Release(state);
     }
 }
 static void pyjack_latency(jack_latency_callback_mode_t mode, void *arg)
