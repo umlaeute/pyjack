@@ -382,6 +382,7 @@ static void pyjack_freewheel(int starting, void *arg)
       PyGILState_Release(state);
     }
 }
+#if 0
 static void pyjack_latency(jack_latency_callback_mode_t mode, void *arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
@@ -394,6 +395,7 @@ static void pyjack_latency(jack_latency_callback_mode_t mode, void *arg)
           Py_DECREF(result);
     }
 }
+#endif
 void pyjack_port_connect(jack_port_id_t a, jack_port_id_t b, int connect, void *arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
@@ -483,10 +485,12 @@ static PyObject* attach(PyObject* self, PyObject* args)
         PyErr_SetString(JackError, "Failed to set jack freewheel callback.");
         return NULL;
     }
+#if 0
     if(jack_set_latency_callback(client->pjc, pyjack_latency, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack latency callback.");
         return NULL;
     }
+#endif
     if(jack_set_port_connect_callback(client->pjc, pyjack_port_connect, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack port-connect callback.");
         return NULL;
@@ -1324,7 +1328,7 @@ ADD_SETCALLBACK(port_registration);
 ADD_SETCALLBACK(port_connect);
 ADD_SETCALLBACK(graph_order);
 ADD_SETCALLBACK(xrun);
-ADD_SETCALLBACK(latency);
+//ADD_SETCALLBACK(latency);
 
 #endif /* JMZ */
 
