@@ -1406,6 +1406,23 @@ initjack(void)
   PyDict_SetItemString(d, "TransportRolling", Py_BuildValue("i", JackTransportRolling));
   PyDict_SetItemString(d, "TransportStarting", Py_BuildValue("i", JackTransportStarting));
 
+// Jack status
+  PyDict_SetItemString(d, "Failure",       Py_BuildValue("i", JackFailure));
+  PyDict_SetItemString(d, "InvalidOption", Py_BuildValue("i", JackInvalidOption));
+  PyDict_SetItemString(d, "NameNotUnique", Py_BuildValue("i", JackNameNotUnique));
+  PyDict_SetItemString(d, "ServerStarted", Py_BuildValue("i", JackServerStarted));
+  PyDict_SetItemString(d, "ServerFailed",  Py_BuildValue("i", JackServerFailed));
+  PyDict_SetItemString(d, "ServerError",   Py_BuildValue("i", JackServerError));
+  PyDict_SetItemString(d, "NoSuchClient",  Py_BuildValue("i", JackNoSuchClient));
+  PyDict_SetItemString(d, "LoadFailure",   Py_BuildValue("i", JackLoadFailure));
+  PyDict_SetItemString(d, "InitFailure",   Py_BuildValue("i", JackInitFailure));
+  PyDict_SetItemString(d, "ShmFailure",    Py_BuildValue("i", JackShmFailure));
+  PyDict_SetItemString(d, "VersionError",  Py_BuildValue("i", JackVersionError));
+  PyDict_SetItemString(d, "BackendError",  Py_BuildValue("i", JackBackendError));
+  PyDict_SetItemString(d, "ClientZombie",  Py_BuildValue("i", JackClientZombie));
+
+
+
   // Enable Numeric module
   import_array();
 
