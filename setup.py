@@ -15,10 +15,11 @@ else:
 
 test = open(path).read()
 
+pyjack_macros=[]
 if ("jack_get_version_string" in test):
-  os.system("patch -f -s -p0 -r build/jack2.rej < ./patches/enable-jack2.diff > /dev/null")
+  pyjack_macros+=[('JACK2', '1')]
 else:
-  os.system("patch -R -f -s -p0 -r build/jack2.rej < ./patches/enable-jack2.diff > /dev/null")
+  pyjack_macros+=[('JACK1', '1')]
 #----------------------------------------------------#
 
 
@@ -39,6 +40,11 @@ For information about Jack see http://jackit.sourceforge.net.  This
 enables a Python program to connect to and interact with pro-audio
 applications which use the Jack Audio Server''',
     license = "GNU GPL2",
-    ext_modules = [Extension("jack", ["pyjack.c"], libraries=["jack", "dl"], include_dirs=numpy_include_dirs)],
+    ext_modules = [Extension("jack",
+                             ["pyjack.c"],
+                             libraries=["jack", "dl"],
+                             include_dirs=numpy_include_dirs,
+                             define_macros=pyjack_macros,
+                             )],
     )
 

@@ -39,9 +39,6 @@ TODO's:
 
 // Global shared data for jack
 
-/* Uncomment the next line if you have Jack2 */
-// #define JACK2 1
-
 /* uncomment the next line for latency callbacks */
 // #define WANT_LATENCY_CALLBACK
 
