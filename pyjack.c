@@ -42,8 +42,6 @@ TODO's:
 /* Uncomment the next line if you have Jack2 */
 // #define JACK2 1
 
-/* Uncomment the next line for callbacks */
-#define JMZ
 
 #define PYJACK_MAX_PORTS 256
 #define W 0
@@ -75,7 +73,7 @@ typedef struct {
     int            event_shutdown;                  // true when the jack server is shutdown
     int            event_hangup;                    // true when client got hangup signal
     int            active;                          // indicates if the client is currently process-enabled
-#ifdef JMZ
+
     PyObject *     callback_buffer_size; // callback whenever the size of the the buffer is about to change
     PyObject *     callback_client_registration; // callback whenever a port is registered or unregistered
     PyObject *     callback_freewheel; // callback whenever we enter or leave "freewheel" mode
@@ -86,7 +84,6 @@ typedef struct {
     PyObject *     callback_sample_rate; // callback whenever the system sample rate changes
     PyObject *     callback_thread_init; // callback when the thread has been initialized
     PyObject *     callback_xrun; // callback whenever there is an xrun
-#endif /* JMZ */
 } pyjack_client_t;
 
 pyjack_client_t global_client;
@@ -232,7 +229,7 @@ int pyjack_process(jack_nframes_t n, void* arg) {
 int pyjack_buffer_size_changed(jack_nframes_t n, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_buffer_size = 1;
-#ifdef JMZ
+
     if(client->callback_buffer_size) {
       PyObject *result = NULL;
       PyObject *arglist= Py_BuildValue("(I)", n);
@@ -241,7 +238,6 @@ int pyjack_buffer_size_changed(jack_nframes_t n, void* arg) {
       if (result != NULL) // LATER: shouldn't we pass the result to jack?
           Py_DECREF(result);
     }
-#endif
     return 0;
 }
 
@@ -249,7 +245,7 @@ int pyjack_buffer_size_changed(jack_nframes_t n, void* arg) {
 int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_sample_rate = 1;
-#ifdef JMZ
+
     if(client->callback_sample_rate) {
       PyObject *result = NULL;
       PyObject *arglist= Py_BuildValue("(I)", n);
@@ -258,7 +254,6 @@ int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
       if (result != NULL) // LATER: shouldn't we pass the result to jack?
           Py_DECREF(result);
     }
-#endif
     return 0;
 }
 
@@ -266,7 +261,7 @@ int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
 int pyjack_graph_order(void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_graph_ordering = 1;
-#ifdef JMZ
+
     if(client->callback_graph_order) {
       PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
@@ -275,7 +270,6 @@ int pyjack_graph_order(void* arg) {
           Py_DECREF(result);
       PyGILState_Release(state);
     }
-#endif
     return 0;
 }
 
@@ -283,7 +277,7 @@ int pyjack_graph_order(void* arg) {
 int pyjack_xrun(void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_xrun = 1;
-#ifdef JMZ
+
     if(client->callback_xrun) {
       PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
@@ -292,7 +286,6 @@ int pyjack_xrun(void* arg) {
           Py_DECREF(result);
       PyGILState_Release(state);
     }
-#endif
     return 0;
 }
 
@@ -300,7 +293,7 @@ int pyjack_xrun(void* arg) {
 void pyjack_port_registration(jack_port_id_t pid, int action, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_port_registration = 1;
-#ifdef JMZ
+
     if(client->callback_port_registration) {
       PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
@@ -311,7 +304,6 @@ void pyjack_port_registration(jack_port_id_t pid, int action, void* arg) {
           Py_DECREF(result);
       PyGILState_Release(state);
     }
-#endif
 }
 
 // Shutdown handler
@@ -329,7 +321,7 @@ void pyjack_hangup(int signal) {
 }
 
 
-#ifdef JMZ
+// callback handles
 void pyjack_thread_init(void* arg)
 {
     pyjack_client_t * client = (pyjack_client_t*) arg;
@@ -397,7 +389,6 @@ void pyjack_port_connect(jack_port_id_t a, jack_port_id_t b, int connect, void *
       PyGILState_Release(state);
     }
 }
-#endif /* JMZ */
 
 
 // ------------- Python module stuff ---------------------
@@ -457,7 +448,7 @@ static PyObject* attach(PyObject* self, PyObject* args)
         PyErr_SetString(JackError, "Failed to set jack xrun callback.");
         return NULL;
     }
-#ifdef JMZ
+
     if(jack_set_thread_init_callback(client->pjc, pyjack_thread_init, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack thread-init callback.");
         return NULL;
@@ -481,7 +472,6 @@ static PyObject* attach(PyObject* self, PyObject* args)
         PyErr_SetString(JackError, "Failed to set jack port-connect callback.");
         return NULL;
     }
-#endif
 
     // Get buffer size
     client->buffer_size = jack_get_buffer_size(client->pjc);
@@ -1282,7 +1272,6 @@ static PyObject* set_sync_timeout(PyObject* self, PyObject* args)
     return Py_None;
 }
 
-#ifdef JMZ
 #define ADD_SETCALLBACK(x) \
   static PyObject* set_##x##_callback(PyObject* self, PyObject* args) { \
     PyObject *result = NULL;                                            \
@@ -1315,8 +1304,6 @@ ADD_SETCALLBACK(port_connect);
 ADD_SETCALLBACK(graph_order);
 ADD_SETCALLBACK(xrun);
 //ADD_SETCALLBACK(latency);
-
-#endif /* JMZ */
 
 // Python Module definition ---------------------------------------------------
 
@@ -1357,7 +1344,6 @@ static PyMethodDef pyjack_methods[] = {
   {"port_is_mine",       port_is_mine,            METH_VARARGS, "port_is_mine(port):\n  Returns 1 if port belongs to the running client"},
   {"set_buffer_size",    set_buffer_size,         METH_VARARGS, "set_buffer_size(size):\n  Sets Jack Buffer Size (minimum appears to be 16)."},
   {"set_sync_timeout",   set_sync_timeout,        METH_VARARGS, "set_sync_timeout(time):\n  Sets the delay (in microseconds) before the timeout expires."},
-#ifdef JMZ
   //  {"on_shutdown",                     on_shutdown,                     METH_VARARGS, "on_shutdown():\n "},
   //  {"on_info_shutdown",                on_info_shutdown,                METH_VARARGS, "on_info_shutdown():\n "},
   {"set_thread_init_callback",         set_thread_init_callback,         METH_VARARGS, "set_thread_init_callback():\n "},
@@ -1368,8 +1354,6 @@ static PyMethodDef pyjack_methods[] = {
   {"set_port_connect_callback",        set_port_connect_callback,        METH_VARARGS, "set_port_connect_callback():\n "},
   {"set_graph_order_callback",         set_graph_order_callback,         METH_VARARGS, "set_graph_order_callback():\n "},
   {"set_xrun_callback",                set_xrun_callback,                METH_VARARGS, "set_xrun_callback():\n "},
-  //{"set_latency_callback",             set_latency_callback,             METH_VARARGS, "set_latency_callback():\n "},
-#endif /* JMZ */
   {NULL, NULL}
 };
 
