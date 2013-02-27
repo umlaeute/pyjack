@@ -299,10 +299,12 @@ int pyjack_xrun(void* arg) {
     client->event_xrun = 1;
 #ifdef JMZ
     if(client->callback_xrun) {
+      PyGILState_STATE state = PyGILState_Ensure();
       PyObject *result = NULL;
       result = PyObject_CallObject(client->callback_xrun, NULL);
       if (result != NULL) // LATER: shouldn't we pass the result to jack?
           Py_DECREF(result);
+      PyGILState_Release(state);
     }
 #endif
     return 0;
