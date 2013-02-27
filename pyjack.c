@@ -104,12 +104,16 @@ void pyjack_init(pyjack_client_t * client) {
     size_t size=sizeof(*client)-headsize;
     memset((void*)(client)+headsize, 0, size );
 
+    client->doProcessing=1;
+
     // Initialize unamed, raw datagram-type sockets...
     if (socketpair(PF_UNIX, SOCK_DGRAM, 0, client->input_pipe) == -1) {
         printf("ERROR: Failed to create socketpair input_pipe!!\n");
+        client->doProcessing=0;
     }
     if (socketpair(PF_UNIX, SOCK_DGRAM, 0, client->output_pipe) == -1) {
         printf("ERROR: Failed to create socketpair output_pipe!!\n");
+        client->doProcessing=0;
     }
 
     // Convention is that pipe[W=1] is the "write" end of the pipe, which is always non-blocking.
@@ -122,8 +126,6 @@ void pyjack_init(pyjack_client_t * client) {
     FD_ZERO(&client->output_rfd);
     FD_SET(client->input_pipe[R], &client->input_rfd);
     FD_SET(client->output_pipe[R], &client->output_rfd);
-
-    client->doProcessing=1;
 }
 
 static void free_and_reset(float ** pointer)
