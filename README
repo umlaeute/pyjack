@@ -1,4 +1,4 @@
-PyJack version 0.2
+PyJack version 0.3
 Original code by Andrew W. Schmeder <andy@a2hd.com>, in2003
 Transport support by Il'dar Akhmetgaleev <akhilman at gmail dot com>, in Jan 14 2008
 Revision and packaging by falkTX <falktx@gmail.com>, in Feb 2010
@@ -38,15 +38,14 @@ Installation:
   This package uses the excellent and simple Python distutils.
   Installation is very simple.  It works something like this;
   
-# tar -xzvf pyjack-0.2.tar.gz           (unpack archive)
-# cd pyjack-0.2                         (cd to source dir)
-# python setup.py install               (install...)
+# tar -xzvf pyjack-0.3.tar.gz           (unpack archive)
+# cd pyjack-0.3                         (cd to source dir)
+# (sudo) python setup.py install        (install...)
 
 ------------------------------------------------------------------------
 Demos:
 
-  There are two demos which show how to use the module in a practical 
-  situation.  See testtone.py and capture.py in the source directory.
+  Demos can be found in the "demos" directory
   
 ------------------------------------------------------------------------
 Realtime Issues:

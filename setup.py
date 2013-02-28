@@ -6,7 +6,7 @@ from distutils.core import setup, Extension
 
 setup(
     name = "pyjack", 
-    version = "0.2", 
+    version = "0.3", 
     description = "Python binding for the Jack Audio Server",
     author = "Andrew W. Schmeder, falkTX",
     author_email = "andy@a2hd.com",

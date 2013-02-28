@@ -6,7 +6,7 @@
 # This source code is released under the terms of the GNU Public License.
 # See LICENSE for the full text of these terms.
 
-import Numeric
+import numpy
 import jack
 
 jack.attach("testtone")
@@ -20,10 +20,10 @@ Sr = float(jack.get_sample_rate())
 print "Buffer Size:", N, "Sample Rate:", Sr
 sec = 3.0
 
-input = Numeric.zeros((1,N), 'f')
-output = Numeric.reshape(
-    Numeric.sin(
-        2*Numeric.pi*440.0 * (Numeric.arange(0, sec, 1.0/(Sr), 'f')[0:int(Sr*sec)])
+input = numpy.zeros((1,N), 'f')
+output = numpy.reshape(
+    numpy.sin(
+        2*numpy.pi*440.0 * (numpy.arange(0, sec, 1.0/(Sr), 'f')[0:int(Sr*sec)])
     ), (1, Sr*sec)).astype('f')
 
 i = 0

@@ -78,7 +78,7 @@ def refresh():
     #print "jack old", prev_jack
     #print "jack frame is", ret_jack_current
 
-    if (prev_jack != ret_jack_current): #Jack changed externally
+    if (prev_jack != ret_jack_current): #Jack changed, externally
         Set("curframe", ret_blender_next)
         #Window.Redraw(Window.Types.ACTION)
         Window.Redraw(Window.Types.BUTS)
@@ -88,7 +88,7 @@ def refresh():
         Window.Redraw(Window.Types.SEQ)
         #Window.Redraw(Window.Types.TEXT)
         Window.Redraw(Window.Types.VIEW3D)
-    elif (prev_blen != ret_blender_curr): #Blender changed internally
+    elif (prev_blen != ret_blender_curr): #Blender changed, internally
         jack.transport_locate(ret_blender_curr)
         while jack.get_current_transport_frame() != ret_blender_curr:
             time.sleep(0.01) # waiting till pyjack applyed transport
