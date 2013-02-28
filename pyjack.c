@@ -63,7 +63,9 @@ typedef struct {
     int            iosync;                          // true when the python side synchronizing properly...
     int            event_graph_ordering;            // true when a graph ordering event has occured
     int            event_port_registration;         // true when a port registration event has occured
+    int            event_buffer_size;               // true when a buffer size change has occured
     int            event_sample_rate;               // true when a sample rate change has occured
+    int            event_xrun;                      // true when a xrun occurs
     int            event_shutdown;                  // true when the jack server is shutdown
     int            event_hangup;                    // true when client got hangup signal
     int            active;                          // indicates if the client is currently process-enabled
@@ -100,13 +102,13 @@ void pyjack_init(pyjack_client_t * client) {
     fcntl(client->input_pipe[W], F_SETFL, O_NONBLOCK);
     fcntl(client->output_pipe[W], F_SETFL, O_NONBLOCK);
     fcntl(client->output_pipe[R], F_SETFL, O_NONBLOCK);
-    
+
     // The read end, pipe[R=0], is blocking, but we use a select() call to make sure that data is really there.
     FD_ZERO(&client->input_rfd);
     FD_ZERO(&client->output_rfd);
     FD_SET(client->input_pipe[R], &client->input_rfd);
     FD_SET(client->output_pipe[R], &client->output_rfd);
-    
+
     // Init buffers to null...
     client->input_buffer_size = 0;
     client->output_buffer_size = 0;
@@ -165,13 +167,13 @@ void init_pipe_buffers(pyjack_client_t  * client) {
         client->output_buffer_1 = realloc(client->output_buffer_1, new_output_size);
         //printf("Output buffer size %d bytes\n", output_buffer_size);
     }
- 
+
     // set socket buffers to same size as snd/rcv buffers
     setsockopt(client->input_pipe[R], SOL_SOCKET, SO_RCVBUF, &client->input_buffer_size, sizeof(int));
     setsockopt(client->input_pipe[R], SOL_SOCKET, SO_SNDBUF, &client->input_buffer_size, sizeof(int));
     setsockopt(client->input_pipe[W], SOL_SOCKET, SO_RCVBUF, &client->input_buffer_size, sizeof(int));
     setsockopt(client->input_pipe[W], SOL_SOCKET, SO_SNDBUF, &client->input_buffer_size, sizeof(int));
-    
+
     setsockopt(client->output_pipe[R], SOL_SOCKET, SO_RCVBUF, &client->output_buffer_size, sizeof(int));
     setsockopt(client->output_pipe[R], SOL_SOCKET, SO_SNDBUF, &client->output_buffer_size, sizeof(int));
     setsockopt(client->output_pipe[W], SOL_SOCKET, SO_RCVBUF, &client->output_buffer_size, sizeof(int));
@@ -195,14 +197,14 @@ int pyjack_process(jack_nframes_t n, void* arg) {
         }
 
         r = write(client->input_pipe[W], client->input_buffer_0, client->input_buffer_size);
-        
+
         if(r < 0) {
             client->iosync = 0;
         } else if(r == client->input_buffer_size) {
             client->iosync = 1;
         }
     }
-    
+
     // Read data from python side (non-blocking!)
     if (client->num_outputs) {
         r = read(client->output_pipe[R], client->output_buffer_0, client->output_buffer_size);
@@ -222,8 +224,14 @@ int pyjack_process(jack_nframes_t n, void* arg) {
     return 0;
 }
 
+// Event notification of buffer size change
+int pyjack_buffer_size_changed(jack_nframes_t n, void* arg) {
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    client->event_buffer_size = 1;
+    return 0;
+}
+
 // Event notification of sample rate change
-// (Can this even happen??)
 int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_sample_rate = 1;
@@ -234,6 +242,13 @@ int pyjack_sample_rate_changed(jack_nframes_t n, void* arg) {
 int pyjack_graph_order(void* arg) {
     pyjack_client_t * client = (pyjack_client_t*) arg;
     client->event_graph_ordering = 1;
+    return 0;
+}
+
+// Event notification of xrun
+int pyjack_xrun(void* arg) {
+    pyjack_client_t * client = (pyjack_client_t*) arg;
+    client->event_xrun = 1;
     return 0;
 }
 
@@ -251,7 +266,7 @@ void pyjack_shutdown(void * arg) {
 }
 
 // SIGHUP handler
-void pyjack_hangup(int sginal) {
+void pyjack_hangup(int signal) {
     // TODO: what to do with non global clients
     global_client.event_hangup = 1;
     global_client.pjc = NULL;
@@ -272,13 +287,13 @@ static PyObject* attach(PyObject* self, PyObject* args)
     char* cname;
     if (! PyArg_ParseTuple(args, "s", &cname))
         return NULL;
-        
+
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc != NULL) {
         PyErr_SetString(JackUsageError, "A connection is already established.");
         return NULL;
     }
-    
+
     jack_status_t status;
     client->pjc = jack_client_open(cname, JackNoStartServer, &status);
     if(client->pjc == NULL) {
@@ -286,12 +301,17 @@ static PyObject* attach(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Failed to connect to Jack audio server.");
         return NULL;
     }
-    
+
     jack_on_shutdown(client->pjc, pyjack_shutdown, client);
     signal(SIGHUP, pyjack_hangup); // TODO: This just works with global clients
-    
+
     if(jack_set_process_callback(client->pjc, pyjack_process, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack process callback.");
+        return NULL;
+    }
+
+    if(jack_set_buffer_size_callback(client->pjc, pyjack_buffer_size_changed, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack buffer size callback.");
         return NULL;
     }
 
@@ -300,19 +320,24 @@ static PyObject* attach(PyObject* self, PyObject* args)
         return NULL;
     }
 
+    if(jack_set_port_registration_callback(client->pjc, pyjack_port_registration, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack port registration callback.");
+        return NULL;
+    }
+
     if(jack_set_graph_order_callback(client->pjc, pyjack_graph_order, client) != 0) {
         PyErr_SetString(JackError, "Failed to set jack graph order callback.");
         return NULL;
     }
 
-    if(jack_set_port_registration_callback(client->pjc, pyjack_port_registration, client) != 0) {
-        PyErr_SetString(JackError, "Failed to set jack port registration callback.");
+    if(jack_set_xrun_callback(client->pjc, pyjack_xrun, client) != 0) {
+        PyErr_SetString(JackError, "Failed to set jack xrun callback.");
         return NULL;
     }
-    
+
     // Get buffer size
     client->buffer_size = jack_get_buffer_size(client->pjc);
-    
+
     // Success!
     Py_INCREF(Py_None);
     return Py_None;
@@ -396,7 +421,7 @@ static PyObject* register_port(PyObject* self, PyObject* args)
     char* pname;
     if (! PyArg_ParseTuple(args, "si", &pname, &flags))
         return NULL;
-        
+
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
@@ -406,18 +431,18 @@ static PyObject* register_port(PyObject* self, PyObject* args)
 //         PyErr_SetString(JackUsageError, "Cannot register ports while client is active.");
 //         return NULL;
 //     }
-    
+
     if(client->num_inputs >= PYJACK_MAX_PORTS) {
         PyErr_SetString(JackUsageError, "Cannot create more than 256 ports. Sorry.");
         return NULL;
     }
-    
+
     jack_port_t* jp = jack_port_register(client->pjc, pname, JACK_DEFAULT_AUDIO_TYPE, flags, 0);
     if(jp == NULL) {
         PyErr_SetString(JackError, "Failed to create port.");
         return NULL;
     }
-    
+
     // Store pointer to this port and increment counter
     if(flags & JackPortIsInput) {
         client->input_ports[client->num_inputs] = jp;
@@ -427,7 +452,7 @@ static PyObject* register_port(PyObject* self, PyObject* args)
         client->output_ports[client->num_outputs] = jp;
         client->num_outputs++;
     }
-        
+
     init_pipe_buffers(client);
     Py_INCREF(Py_None);
     return Py_None;
@@ -445,9 +470,9 @@ static PyObject* get_ports(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
     jplist = jack_get_ports(client->pjc, NULL, NULL, 0);
-    
+
     i = 0;
     plist = PyList_New(0);
     if(jplist != NULL) {
@@ -489,7 +514,7 @@ static PyObject* get_port_flags(PyObject* self, PyObject* args)
         PyErr_SetString(JackError, "Error getting port flags.");
         return NULL;
     }
-    
+
     return Py_BuildValue("i", i);
 }
 
@@ -508,18 +533,18 @@ static PyObject* get_connections(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
     if (! PyArg_ParseTuple(args, "s", &pname))
         return NULL;
-        
+
     jp = jack_port_by_name(client->pjc, pname);
     if(jp == NULL) {
         PyErr_SetString(JackError, "Bad port name.");
         return NULL;
     }
-        
+
     jplist = jack_port_get_all_connections(client->pjc, jp);
-    
+
     i = 0;
     plist = PyList_New(0);
     if(jplist != NULL) {
@@ -539,7 +564,7 @@ static PyObject* port_connect(PyObject* self, PyObject* args)
 {
     char* src_name;
     char* dst_name;
-    
+
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
@@ -570,7 +595,7 @@ static PyObject* port_connect(PyObject* self, PyObject* args)
         PyErr_SetString(JackError, "Failed to connect ports.");
         return NULL;
     }
-    
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -582,10 +607,10 @@ static int jack_port_connected_to_extern(const pyjack_client_t * client,
     // finds connections of src, then checks if dst is in there
     const char ** existing_connections = jack_port_get_all_connections(client->pjc, src);
     if (existing_connections) {
-    	  int i; // non C99 nonsense
+        int i; // non C99 nonsense
         for (i = 0; existing_connections[i]; i++) {
-	          return strcmp(existing_connections[i], dst_name) == 0;
-	      }
+            return strcmp(existing_connections[i], dst_name) == 0;
+        }
     }
     return 0;
 }
@@ -596,7 +621,7 @@ static PyObject* port_disconnect(PyObject* self, PyObject* args)
     char* src_name;
     char* dst_name;
     pyjack_client_t * client = self_or_global_client(self);
-    
+
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
@@ -617,13 +642,13 @@ static PyObject* port_disconnect(PyObject* self, PyObject* args)
         return NULL;
     }
 
-		if(jack_port_connected_to_extern(client, src, dst_name)) {
-				if (jack_disconnect(client->pjc, src_name, dst_name))	{
-						PyErr_SetString(JackError, "Failed to disconnect ports.");
-						return NULL;
-				}
-		}
-    
+    if(jack_port_connected_to_extern(client, src, dst_name)) {
+        if (jack_disconnect(client->pjc, src_name, dst_name))	{
+            PyErr_SetString(JackError, "Failed to disconnect ports.");
+            return NULL;
+        }
+    }
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -632,7 +657,7 @@ static PyObject* port_disconnect(PyObject* self, PyObject* args)
 static PyObject* get_buffer_size(PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
-    
+
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
@@ -650,12 +675,12 @@ static PyObject* get_sample_rate(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
     int sr = jack_get_sample_rate(client->pjc);
     return Py_BuildValue("i", sr);
 }
 
-// activate 
+// activate
 static PyObject* activate(PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
@@ -692,12 +717,12 @@ static PyObject* deactivate(PyObject* self, PyObject* args)
         PyErr_SetString(JackUsageError, "Client is not active.");
         return NULL;
     }
-    
+
     if(jack_deactivate(client->pjc) != 0) {
         PyErr_SetString(JackError, "Could not deactivate client.");
         return NULL;
     }
-    
+
     client->active = 0;
     Py_INCREF(Py_None);
     return Py_None;
@@ -721,17 +746,17 @@ static PyObject* process(PyObject* self, PyObject *args)
     int j, c, r;
     PyArrayObject *input_array;
     PyArrayObject *output_array;
-    
+
     pyjack_client_t * client = self_or_global_client(self);
     if(! client->active) {
         PyErr_SetString(JackUsageError, "Client is not active.");
         return NULL;
     }
-    
+
     // Import the first and only arg...
     if (! PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &output_array, &PyArray_Type, &input_array))
         return NULL;
-        
+
     if(input_array->descr->type_num != PyArray_FLOAT || output_array->descr->type_num != PyArray_FLOAT) {
         PyErr_SetString(PyExc_ValueError, "arrays must be of type float");
         return NULL;
@@ -759,9 +784,8 @@ static PyObject* process(PyObject* self, PyObject *args)
     // If we are out of sync, there might be bad data in the buffer
     // So we have to throw that away first...
     if (client->input_buffer_size) {
-		
         r = read(client->input_pipe[R], client->input_buffer_1, client->input_buffer_size);
-        
+
         // Copy data into array...
         for(c = 0; c < client->num_inputs; c++) {
             for(j = 0; j < client->buffer_size; j++) {
@@ -772,7 +796,7 @@ static PyObject* process(PyObject* self, PyObject *args)
                 );
             }
         }
-        
+
         if(0 && ! client->iosync) {
             PyErr_SetString(JackInputSyncError, "Input data stream is not synchronized.");
             return NULL;
@@ -789,7 +813,7 @@ static PyObject* process(PyObject* self, PyObject *args)
                 );
             }
         }
-    
+
         // Send... raise an exception if the output data stream is full.
         r = write(client->output_pipe[W], client->output_buffer_1, client->output_buffer_size);
 
@@ -812,15 +836,17 @@ static PyObject* check_events(PyObject* self, PyObject *args)
     PyObject* d;
     d = PyDict_New();
     if(d == NULL) return NULL;
-    
+
     PyDict_SetItemString(d, "graph_ordering", Py_BuildValue("i", client->event_graph_ordering));
     PyDict_SetItemString(d, "port_registration", Py_BuildValue("i", client->event_port_registration));
+    PyDict_SetItemString(d, "xrun", Py_BuildValue("i", client->event_xrun));
     PyDict_SetItemString(d, "shutdown", Py_BuildValue("i", client->event_shutdown));
     PyDict_SetItemString(d, "hangup", Py_BuildValue("i", client->event_hangup));
-    
+
     // Reset all
     client->event_graph_ordering = 0;
     client->event_port_registration = 0;
+    client->event_xrun = 0;
     client->event_shutdown = 0;
     client->event_hangup = 0;
 
@@ -834,7 +860,7 @@ static PyObject* get_frame_time(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
     int frt = jack_frame_time(client->pjc);
     return Py_BuildValue("i", frt);
 }
@@ -846,7 +872,7 @@ static PyObject* get_current_transport_frame(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
     int ftr = jack_get_current_transport_frame(client->pjc);
     return Py_BuildValue("i", ftr);
 }
@@ -854,8 +880,6 @@ static PyObject* get_current_transport_frame(PyObject* self, PyObject* args)
 static PyObject* transport_locate (PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
-    //jack_position_t pos;
-    //jack_transport_state_t transport_state;
     jack_nframes_t newfr;
 
     if (! PyArg_ParseTuple(args, "i", &newfr))
@@ -867,35 +891,39 @@ static PyObject* transport_locate (PyObject* self, PyObject* args)
     }
 
     jack_transport_locate (client->pjc,newfr);
-    //transport_state = jack_transport_query (client->pjc, &pos);
-    //pos.frame = newfr;
-
     return Py_None;
 }
 
 static PyObject* get_transport_state (PyObject* self, PyObject* args)
 {
     //int state;
-
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
     jack_transport_state_t transport_state;
     transport_state = jack_transport_query (client->pjc, NULL);
 
     return Py_BuildValue("i", transport_state);
 }
 
-// Return Jack version, as string
+static PyObject* get_version(PyObject* self, PyObject* args)
+{
+    int major, minor, micro, proto;
+    jack_get_version(&major, &minor, &micro, &proto);
+    return Py_BuildValue("iiii", major, minor, micro, proto);
+}
+
+/* - FIXME - Only available on Jack2 (?)
 static PyObject* get_version_string(PyObject* self, PyObject* args)
 {
     const char* version;
     version = jack_get_version_string();
     return Py_BuildValue("s", version);
 }
+*/
 
 static PyObject* get_cpu_load(PyObject* self, PyObject* args)
 {
@@ -904,56 +932,94 @@ static PyObject* get_cpu_load(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-  
+
     float cpu_load = jack_cpu_load(client->pjc);
-    
+
     return Py_BuildValue("f", cpu_load);
 }
 
-static PyObject* get_port_type(PyObject* self, PyObject* args)
+static PyObject* get_port_short_name(PyObject* self, PyObject* args)
 {
     char * port_name;
-    
+
+    if (! PyArg_ParseTuple(args, "s", &port_name))
+        return NULL;
+
+    if (port_name == NULL) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
+        return NULL;
+    }
+
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
+
+    jack_port_t * port = jack_port_by_name(client->pjc, port_name);
+    if (!port) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
+        return NULL;
+    }
+    const char * port_short_name = jack_port_short_name(port);
+
+    return Py_BuildValue("s", port_short_name);
+}
+
+static PyObject* get_port_type(PyObject* self, PyObject* args)
+{
+    char * port_name;
+
     if (! PyArg_ParseTuple(args, "s", &port_name))
         return NULL;
-    
+
+    if (port_name == NULL) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
+        return NULL;
+    }
+
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
     jack_port_t * port = jack_port_by_name(client->pjc, port_name);
-    if (!port_name) {
-        PyErr_SetString(JackUsageError, "Port does not exist.");
+    if (!port) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
         return NULL;
     }
     const char * port_type = jack_port_type(port);
-    
+
     return Py_BuildValue("s", port_type);
 }
 
 static PyObject* get_port_type_id(PyObject* self, PyObject* args)
 {
     char * port_name;
-    
+
+    if (! PyArg_ParseTuple(args, "s", &port_name))
+        return NULL;
+
+    if (port_name == NULL) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
+        return NULL;
+    }
+
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-    
-    if (! PyArg_ParseTuple(args, "s", &port_name))
-        return NULL;
-    
+
     jack_port_t * port = jack_port_by_name(client->pjc, port_name);
-    if (!port_name) {
-        PyErr_SetString(JackUsageError, "Port does not exist.");
+    if (!port) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
         return NULL;
     }
-    
+
     jack_port_type_id_t port_type_id = jack_port_type_id(port);
-    
+
     int ret = port_type_id;
     return Py_BuildValue("i", ret);
 }
@@ -965,11 +1031,39 @@ static PyObject* is_realtime(PyObject* self, PyObject* args)
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
-  
+
     int realtime = jack_is_realtime(client->pjc);
-    
     return Py_BuildValue("i", realtime);
 }
+
+static PyObject* port_is_mine(PyObject* self, PyObject* args)
+{
+    char * port_name;
+
+    if (! PyArg_ParseTuple(args, "s", &port_name))
+        return NULL;
+
+    if (port_name == NULL) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
+        return NULL;
+    }
+
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
+    jack_port_t * port = jack_port_by_name(client->pjc, port_name);
+    if (!port) {
+        PyErr_SetString(JackError, "Port name cannot be empty.");
+        return NULL;
+    }
+
+    int port_mine = jack_port_is_mine(client->pjc, port);
+    return Py_BuildValue("i", port_mine);
+}
+
 
 static PyObject* transport_stop (PyObject* self, PyObject* args)
 {
@@ -997,6 +1091,44 @@ static PyObject* transport_start (PyObject* self, PyObject* args)
     return Py_None;
 }
 
+static PyObject* set_buffer_size(PyObject* self, PyObject* args)
+{
+    int size;
+
+    if (! PyArg_ParseTuple(args, "i", &size))
+        return NULL;
+
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
+    jack_nframes_t nsize = size;
+    jack_set_buffer_size(client->pjc, nsize);
+
+    return Py_None;
+}
+
+static PyObject* set_sync_timeout(PyObject* self, PyObject* args)
+{
+    int time;
+
+    if (! PyArg_ParseTuple(args, "i", &time))
+        return NULL;
+
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
+    jack_time_t timeout = time;
+    jack_set_sync_timeout(client->pjc, timeout);
+
+    return Py_None;
+}
+
 
 // Python Module definition ---------------------------------------------------
 
@@ -1012,22 +1144,27 @@ static PyMethodDef pyjack_methods[] = {
   {"register_port",      register_port,           METH_VARARGS, "register_port(name, flags):\n  Register a new port for this client"},
   {"unregister_port",    unregister_port,         METH_VARARGS, "unregister_port(name):\n  Unregister an existing port for this client"},
   {"get_ports",          get_ports,               METH_VARARGS, "get_ports():\n  Get a list of all ports in the Jack graph"},
-  {"get_port_flags",     get_port_flags,          METH_VARARGS, "get_port_flags():\n  Return flags of a port (flags are bits in an integer)"},
+  {"get_port_flags",     get_port_flags,          METH_VARARGS, "get_port_flags(port):\n  Return flags of a port (flags are bits in an integer)"},
   {"get_connections",    get_connections,         METH_VARARGS, "get_connections():\n  Get a list of all ports connected to a port"},
   {"get_buffer_size",    get_buffer_size,         METH_VARARGS, "get_buffer_size():\n  Get the buffer size currently in use"},
   {"get_sample_rate",    get_sample_rate,         METH_VARARGS, "get_sample_rate():\n  Get the sample rate currently in use"},
   {"check_events",       check_events,            METH_VARARGS, "check_events():\n  Check for event notifications"},
-  {"get_frame_time",     get_frame_time,          METH_VARARGS, "get_frame_time():\n  Get current frame time"},
-  {"get_current_transport_frame", get_current_transport_frame,  METH_VARARGS, "get_current_transport_frame():\n  Get current transport frame"},
-  {"transport_locate",   transport_locate,        METH_VARARGS, "transport_locate(frame):\n  Set current transport frame"},
-  {"get_transport_state",get_transport_state,     METH_VARARGS, "get_transport_state():\n  Get current transport state"},
+  {"get_frame_time",     get_frame_time,          METH_VARARGS, "get_frame_time():\n  Returns the current frame time"},
+  {"get_current_transport_frame", get_current_transport_frame,  METH_VARARGS, "get_current_transport_frame():\n  Returns the current transport frame"},
+  {"transport_locate",   transport_locate,        METH_VARARGS, "transport_locate(frame):\n  Sets the current transport frame"},
+  {"get_transport_state",get_transport_state,     METH_VARARGS, "get_transport_state():\n  Returns the current transport state"},
   {"transport_stop",     transport_stop,          METH_VARARGS, "transport_stop():\n  Stopping transport"},
   {"transport_start",    transport_start,         METH_VARARGS, "transport_start():\n  Starting transport"},
-  {"get_version_string", get_version_string,      METH_VARARGS, "get_version_string():\n  Returns the version of JACK, in form of a string"},
+  {"get_version",        get_version,             METH_VARARGS, "get_version():\n  Returns the version of JACK, in form of several numbers"},
+//   {"get_version_string", get_version_string,      METH_VARARGS, "get_version_string():\n  Returns the version of JACK, in form of a string"},
   {"get_cpu_load",       get_cpu_load,            METH_VARARGS, "get_cpu_load():\n  Returns the current CPU load estimated by JACK"},
+  {"get_port_short_name",get_port_short_name,     METH_VARARGS, "get_port_short_name(port):\n  Returns the short name of the port (not including the \"client_name:\" prefix)"},
   {"get_port_type",      get_port_type,           METH_VARARGS, "get_port_type(port):\n  Returns the port type (in a string)"},
   {"get_port_type_id",   get_port_type_id,        METH_VARARGS, "get_port_type_id(port):\n  Returns the port type id"},
-  {"is_realtime",        is_realtime,             METH_VARARGS, "is_realtime():\n  Check if the JACK subsystem is running with -R (--realtime)"},
+  {"is_realtime",        is_realtime,             METH_VARARGS, "is_realtime():\n  Returns 1 if the JACK subsystem is running with -R (--realtime)"},
+  {"port_is_mine",       port_is_mine,            METH_VARARGS, "port_is_mine(port):\n  Returns 1 if port belongs to the running client"},
+  {"set_buffer_size",    set_buffer_size,         METH_VARARGS, "set_buffer_size(size):\n  Sets Jack Buffer Size (minimum appears to be 16)."},
+  {"set_sync_timeout",   set_sync_timeout,        METH_VARARGS, "set_sync_timeout(time):\n  Sets the delay (in microseconds) before the timeout expires."},
   {NULL, NULL}
 };
 
@@ -1045,7 +1182,7 @@ Client_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 Client_init(PyObject *self, PyObject *args, PyObject *kwds)
 {	
-		int status = 0;
+    int status = 0;
     if (!attach(self, args)) status = -1;
     return status;
 }
@@ -1105,7 +1242,6 @@ static PyTypeObject pyjack_ClientType = {
 
 
 
- 
 #ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
 #define PyMODINIT_FUNC void
 #endif
@@ -1113,7 +1249,7 @@ PyMODINIT_FUNC
 initjack(void)
 {
   PyObject *m, *d;
-  
+
   if (PyType_Ready(&pyjack_ClientType) < 0)
     return;
   m = Py_InitModule3("jack", pyjack_methods,
@@ -1133,7 +1269,7 @@ initjack(void)
   JackUsageError = PyErr_NewException("jack.UsageError", NULL, NULL);
   JackInputSyncError = PyErr_NewException("jack.InputSyncError", NULL, NULL);
   JackOutputSyncError = PyErr_NewException("jack.OutputSyncError", NULL, NULL);
-  
+
   PyDict_SetItemString(d, "Error", JackError);
   PyDict_SetItemString(d, "NotConnectedError", JackNotConnectedError);
   PyDict_SetItemString(d, "UsageError", JackUsageError);
@@ -1148,18 +1284,18 @@ initjack(void)
   PyDict_SetItemString(d, "TransportStopped", Py_BuildValue("i", JackTransportStopped));
   PyDict_SetItemString(d, "TransportRolling", Py_BuildValue("i", JackTransportRolling));
   PyDict_SetItemString(d, "TransportStarting", Py_BuildValue("i", JackTransportStarting));
-  
+
   // Enable Numeric module
   import_array();
- 
+
   if (PyErr_Occurred())
     goto fail;
 
   // Init jack data structures
   pyjack_init(&global_client);
- 
+
   return;
- 
+
 fail:
   Py_FatalError("Failed to initialize module pyjack");
 }

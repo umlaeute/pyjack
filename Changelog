@@ -1,5 +1,17 @@
 PyJack Changelog
 
+version 0.5:
+ * Implemented "get_version" (not working ?)
+ * Implemented "get_port_short_name"
+ * Implemented "port_is_mine"
+ * Implemented "set_buffer_size"
+ * Implemented "set_sync_timeout"
+ * Implemented "buffer_size_callback"
+ * Implemented "xrun_callback"
+ * Fixed auto-selecting 1st available port when port name is empty
+ * Disabled "get_version_string" for now (requires a very recent Jack version)
+ * Other very small fixes
+
 version 0.4:
  * Implemented "get_version_string"
  * Implemented "get_cpu_load"

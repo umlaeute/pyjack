@@ -20,7 +20,8 @@ Description: Jack modules for python
 
 Package: python-jack-demos
 Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}, python-jack, python-scipy
+Depends: ${python:Depends}, ${misc:Depends}, python-jack
+Suggests: python-scipy, python-qt4
 Description: Jack modules for python
  PyJack2 is a module written in C which exposes the Jack API to Python.
  For information about Jack see http://jackit.sourceforge.net.
