@@ -55,8 +55,8 @@ class MainW(QDialog):
 	elif (state == 1):
 	  self.l_state.setText("Rolling")
 	  self.b_play.setChecked(True)
-	elif (state == 2): self.l_state.setText("Starting")
-	else: self.l_state.setText("Unknown")
+	elif (state == 3): self.l_state.setText("Starting")
+	else: self.l_state.setText("Unknown (%i)" % state)
 
 	# Current Time
 	time = frame / rate

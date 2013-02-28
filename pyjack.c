@@ -801,7 +801,7 @@ static PyObject* process(PyObject* self, PyObject *args)
             }
         }
 
-        if(0 && ! client->iosync) {
+        if(!client->iosync) {
             PyErr_SetString(JackInputSyncError, "Input data stream is not synchronized.");
             return NULL;
         }

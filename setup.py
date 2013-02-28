@@ -23,15 +23,18 @@ else:
 
 
 from distutils.core import setup, Extension
+import numpy.distutils
+
+numpy_include_dirs = numpy.distutils.misc_util.get_numpy_include_dirs()
 
 setup(
-    name = "pyjack", 
-    version = "0.5.1", 
-    description = "Python binding for the Jack Audio Server",
+    name = "pyjack",
+    version = "0.5.1",
+    description = "Python bindings for the Jack Audio Server",
     author = "Andrew W. Schmeder, falkTX",
     author_email = "andy@a2hd.com",
     url = "http://www.a2hd.com/software",
 
-    ext_modules = [Extension("jack", ["pyjack.c"], libraries=["jack", "dl"])],
+    ext_modules = [Extension("jack", ["pyjack.c"], libraries=["jack", "dl"], include_dirs=numpy_include_dirs)],
     )
 

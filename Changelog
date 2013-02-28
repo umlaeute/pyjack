@@ -1,5 +1,9 @@
 PyJack Changelog
 
+version 0.5.2:
+ * PyJack never raises JackInputSyncError
+ * Get "numpy/arrayobject.h" path from numpy
+
 version 0.5.1:
  * Added check for Jack2 (disable some functions if not)
     (fixes compilation on older Jack versions)
