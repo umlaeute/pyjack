@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Capture 3 seconds of stereo audio from alsa_pcm:capture_1/2; then play it back.
 #
 # Copyright 2003, Andrew W. Schmeder

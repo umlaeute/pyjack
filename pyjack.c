@@ -2,10 +2,12 @@
   * pyjackc - C module implementation for pyjack
   *
   * Copyright 2003 Andrew W. Schmeder <andy@a2hd.com>
+  * Copyright 2010 Filipe Coelho (aka 'falkTX') <falktx@gmail.com>
   *
-  * This source code is released under the terms of the GNU Public License.
+  * This source code is released under the terms of the GNU GPL v2.
   * See LICENSE for the full text of these terms.
   */
+
 
 // Python includes
 #include "Python.h"
@@ -13,6 +15,7 @@
 
 // Jack
 #include <jack/jack.h>
+#include <jack/transport.h>
 
 // C standard
 #include <stdio.h>
@@ -51,7 +54,7 @@ int            event_hangup;                    // true when client got hangup s
 int            active;                          // indicates if the client is currently process-enabled
 
 // Initialize global data
-void pyjack_init() {
+void pyjack_init(void) {
     pjc = NULL;
     active = 0;
     iosync = 0;
@@ -91,7 +94,7 @@ void pyjack_init() {
 }
 
 // Finalize global data
-void pyjack_final() {
+void pyjack_final(void) {
     pjc = NULL;
     // Free buffers...
     // Close socket...
@@ -100,7 +103,7 @@ void pyjack_final() {
 }
 
 // (Re)initialize socketpair buffers
-void init_pipe_buffers() {
+void init_pipe_buffers(void) {
     // allocate buffers for send and recv
     if(input_buffer_size != num_inputs * buffer_size * sizeof(float)) {
         input_buffer_size = num_inputs * buffer_size * sizeof(float);
@@ -211,6 +214,9 @@ static PyObject* IsOutput;
 static PyObject* IsTerminal;
 static PyObject* IsPhysical;
 static PyObject* CanMonitor;
+static PyObject* TransportStopped;
+static PyObject* TransportRolling;
+static PyObject* TransportStarting;
 
 // Attempt to connect to the Jack server
 static PyObject* attach(PyObject* self, PyObject* args)
@@ -225,7 +231,7 @@ static PyObject* attach(PyObject* self, PyObject* args)
     if (! PyArg_ParseTuple(args, "s", &cname))
         return NULL;
         
-    pjc = jack_client_new(cname);
+    pjc = jack_client_open(cname, JackNullOption, 0);
     if(pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Failed to connect to Jack audio server.");
         return NULL;
@@ -663,24 +669,113 @@ static PyObject* check_events(PyObject* self, PyObject *args)
     return d;
 }
 
+static PyObject* get_frame_time(PyObject* self, PyObject* args)
+{
+    int frt;
+
+    if(pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+    
+    frt = jack_frame_time(pjc);
+    return Py_BuildValue("i", frt);
+}
+static PyObject* get_current_transport_frame(PyObject* self, PyObject* args)
+{
+    int ftr;
+
+    if(pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+    
+    ftr = jack_get_current_transport_frame(pjc);
+    return Py_BuildValue("i", ftr);
+}
+static PyObject* transport_locate (PyObject* self, PyObject* args)
+{
+    //jack_position_t pos;
+    //jack_transport_state_t transport_state;
+    jack_nframes_t newfr;
+
+    //int newfr;
+
+    if (! PyArg_ParseTuple(args, "i", &newfr))
+        return NULL;
+
+    if(pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
+    jack_transport_locate (pjc,newfr);
+    //transport_state = jack_transport_query (pjc, &pos);
+    //pos.frame = newfr;
+
+    return Py_None;
+}
+static PyObject* get_transport_state (PyObject* self, PyObject* args)
+{
+    //int state;
+
+    if(pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+    
+    jack_transport_state_t transport_state;
+    transport_state = jack_transport_query (pjc, NULL);
+
+    return Py_BuildValue("i", transport_state);
+}
+static PyObject* transport_stop (PyObject* self, PyObject* args)
+{
+    if(pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
+    jack_transport_stop (pjc);
+
+    return Py_None;
+}
+static PyObject* transport_start (PyObject* self, PyObject* args)
+{
+    if(pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+
+    jack_transport_start (pjc);
+
+    return Py_None;
+}
+
 
 // Python Module definition ---------------------------------------------------
 
 static PyMethodDef pyjack_methods[] = {
-  {"attach",             attach,                  METH_VARARGS, "attach(name):\n  Attach client to the Jack server"},
-  {"detach",             detach,                  METH_VARARGS, "detach():\n  Detach client from the Jack server"},
-  {"activate",           activate,                METH_VARARGS, "activate():\n  Activate audio processing"},
-  {"deactivate",         deactivate,              METH_VARARGS, "deactivate():\n  Deactivate audio processing"},
-  {"connect",            port_connect,            METH_VARARGS, "connect(source, destination):\n  Connect two ports, given by name"},
-  {"disconnect",         port_disconnect,         METH_VARARGS, "disconnect(source, destination):\n  Disconnect two ports, given by name"},
-  {"process",            process,                 METH_VARARGS, "process(output_array, input_array):\n  Exchange I/O data with RT Jack thread"},
-  {"register_port",      register_port,           METH_VARARGS, "register_port(name, flags):\n  Register a new port for this client"},
-  {"get_ports",          get_ports,               METH_VARARGS, "get_ports():\n  Get a list of all ports in the Jack graph"},
-  {"get_port_flags",     get_port_flags,          METH_VARARGS, "get_port_flags():\n  Return flags of a port (flags are bits in an integer)"},
-  {"get_connections",    get_connections,         METH_VARARGS, "get_connections():\n  Get a list of all ports connected to a port"},
-  {"get_buffer_size",    get_buffer_size,         METH_VARARGS, "get_buffer_size():\n  Get the buffer size currently in use"},
-  {"get_sample_rate",    get_sample_rate,         METH_VARARGS, "get_sample_rate():\n  Get the sample rate currently in use"},
-  {"check_events",       check_events,            METH_VARARGS, "check_events():\n  Check for event notifications"},
+  {"attach",		attach,			METH_VARARGS, "attach(name):\n  Attach client to the Jack server"},
+  {"detach",		detach,			METH_VARARGS, "detach():\n  Detach client from the Jack server"},
+  {"activate",		activate,		METH_VARARGS, "activate():\n  Activate audio processing"},
+  {"deactivate",	deactivate,		METH_VARARGS, "deactivate():\n  Deactivate audio processing"},
+  {"connect",		port_connect,		METH_VARARGS, "connect(source, destination):\n  Connect two ports, given by name"},
+  {"disconnect",	port_disconnect,	METH_VARARGS, "disconnect(source, destination):\n  Disconnect two ports, given by name"},
+  {"process",		process,		METH_VARARGS, "process(output_array, input_array):\n  Exchange I/O data with RT Jack thread"},
+  {"register_port",	register_port,		METH_VARARGS, "register_port(name, flags):\n  Register a new port for this client"},
+  {"get_ports",		get_ports,		METH_VARARGS, "get_ports():\n  Get a list of all ports in the Jack graph"},
+  {"get_port_flags",	get_port_flags,		METH_VARARGS, "get_port_flags():\n  Return flags of a port (flags are bits in an integer)"},
+  {"get_connections",	get_connections,	METH_VARARGS, "get_connections():\n  Get a list of all ports connected to a port"},
+  {"get_buffer_size",	get_buffer_size,	METH_VARARGS, "get_buffer_size():\n  Get the buffer size currently in use"},
+  {"get_sample_rate",	get_sample_rate,	METH_VARARGS, "get_sample_rate():\n  Get the sample rate currently in use"},
+  {"check_events",	check_events,		METH_VARARGS, "check_events():\n  Check for event notifications"},
+  {"get_frame_time",	get_frame_time,		METH_VARARGS, "get_frame_time():\n  Get current frame time"},
+  {"get_current_transport_frame", get_current_transport_frame, METH_VARARGS, "get_current_transport_frame():\n  Get current transport frame"},
+  {"transport_locate",	transport_locate,	METH_VARARGS, "transport_locate(frame):\n  Set current transport frame"},
+  {"get_transport_state", get_transport_state,	METH_VARARGS, "get_transport_state():\n  Get current transport state"},
+  {"transport_stop",	transport_stop,		METH_VARARGS, "transport_stop():\n  Stopping transport"},
+  {"transport_start",	transport_start,	METH_VARARGS, "transport_start():\n  Starting transport"},
   {NULL, NULL}
 };
  
@@ -706,6 +801,9 @@ initjack(void)
   IsTerminal = Py_BuildValue("i", JackPortIsTerminal);
   IsPhysical = Py_BuildValue("i", JackPortIsPhysical);
   CanMonitor = Py_BuildValue("i", JackPortCanMonitor);
+  TransportStopped = Py_BuildValue("i", JackTransportStopped);
+  TransportRolling = Py_BuildValue("i", JackTransportRolling);
+  TransportStarting = Py_BuildValue("i", JackTransportStarting);
   
   PyDict_SetItemString(d, "Error", JackError);
   PyDict_SetItemString(d, "NotConnectedError", JackNotConnectedError);
@@ -717,6 +815,9 @@ initjack(void)
   PyDict_SetItemString(d, "IsTerminal", IsTerminal);
   PyDict_SetItemString(d, "IsPhysical", IsPhysical);
   PyDict_SetItemString(d, "CanMonitor", CanMonitor);
+  PyDict_SetItemString(d, "TransportStopped", TransportStopped);
+  PyDict_SetItemString(d, "TransportRolling", TransportRolling);
+  PyDict_SetItemString(d, "TransportStarting", TransportStarting);
   
   // Enable Numeric module
   import_array();

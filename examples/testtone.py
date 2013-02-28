@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Plays a 440.0 Hz test tone for 3 seconds to alsa_pcm:playback_1.
 #
 # Copyright 2003, Andrew W. Schmeder
