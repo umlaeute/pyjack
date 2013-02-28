@@ -32,11 +32,11 @@ setup(
     name = "pyjack",
     version = "0.5.1",
     description = "Python bindings for the Jack Audio Server",
-    author = "Andrew W. Schmeder, falkTX",
+    author = "Andrew W. Schmeder, falkTX, IOhannes m zmölnig",
     author_email = "andy@a2hd.com",
-    url = "http://www.a2hd.com/software",
+    url = "http://sourceforge.net/projects/py-jack",
     long_description = '''PyJack is a module written in C which exposes the Jack API to Python.
-For information about Jack see http://jackit.sourceforge.net.  This
+For information about Jack see http://jackaudio.org.  This
 enables a Python program to connect to and interact with pro-audio
 applications which use the Jack Audio Server''',
     license = "GNU GPL2",
