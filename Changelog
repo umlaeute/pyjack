@@ -1,5 +1,9 @@
 PyJack Changelog
 
+version 0.5.1:
+ * Added check for Jack2 (disable some functions if not)
+    (fixes compilation on older Jack versions)
+
 version 0.5:
  * Implemented "get_version" (not working ?)
  * Implemented "get_port_short_name"

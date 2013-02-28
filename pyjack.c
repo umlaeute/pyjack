@@ -39,6 +39,10 @@ TODO's:
 
 // Global shared data for jack
 
+/* Uncomment the next line if you have Jack2 */
+// #define JACK2 1
+
+
 #define PYJACK_MAX_PORTS 256
 #define W 0
 #define R 1
@@ -909,21 +913,23 @@ static PyObject* get_transport_state (PyObject* self, PyObject* args)
     return Py_BuildValue("i", transport_state);
 }
 
+#ifdef JACK2
 static PyObject* get_version(PyObject* self, PyObject* args)
 {
     int major, minor, micro, proto;
     jack_get_version(&major, &minor, &micro, &proto);
     return Py_BuildValue("iiii", major, minor, micro, proto);
 }
+#endif
 
-/* - FIXME - Only available on Jack2 (?)
+#ifdef JACK2
 static PyObject* get_version_string(PyObject* self, PyObject* args)
 {
     const char* version;
     version = jack_get_version_string();
     return Py_BuildValue("s", version);
 }
-*/
+#endif
 
 static PyObject* get_cpu_load(PyObject* self, PyObject* args)
 {
@@ -994,6 +1000,7 @@ static PyObject* get_port_type(PyObject* self, PyObject* args)
     return Py_BuildValue("s", port_type);
 }
 
+#ifdef JACK2
 static PyObject* get_port_type_id(PyObject* self, PyObject* args)
 {
     char * port_name;
@@ -1023,6 +1030,7 @@ static PyObject* get_port_type_id(PyObject* self, PyObject* args)
     int ret = port_type_id;
     return Py_BuildValue("i", ret);
 }
+#endif
 
 static PyObject* is_realtime(PyObject* self, PyObject* args)
 {
@@ -1155,12 +1163,16 @@ static PyMethodDef pyjack_methods[] = {
   {"get_transport_state",get_transport_state,     METH_VARARGS, "get_transport_state():\n  Returns the current transport state"},
   {"transport_stop",     transport_stop,          METH_VARARGS, "transport_stop():\n  Stopping transport"},
   {"transport_start",    transport_start,         METH_VARARGS, "transport_start():\n  Starting transport"},
+#ifdef JACK2
   {"get_version",        get_version,             METH_VARARGS, "get_version():\n  Returns the version of JACK, in form of several numbers"},
-//   {"get_version_string", get_version_string,      METH_VARARGS, "get_version_string():\n  Returns the version of JACK, in form of a string"},
+  {"get_version_string", get_version_string,      METH_VARARGS, "get_version_string():\n  Returns the version of JACK, in form of a string"},
+#endif
   {"get_cpu_load",       get_cpu_load,            METH_VARARGS, "get_cpu_load():\n  Returns the current CPU load estimated by JACK"},
   {"get_port_short_name",get_port_short_name,     METH_VARARGS, "get_port_short_name(port):\n  Returns the short name of the port (not including the \"client_name:\" prefix)"},
   {"get_port_type",      get_port_type,           METH_VARARGS, "get_port_type(port):\n  Returns the port type (in a string)"},
+#ifdef JACK2
   {"get_port_type_id",   get_port_type_id,        METH_VARARGS, "get_port_type_id(port):\n  Returns the port type id"},
+#endif
   {"is_realtime",        is_realtime,             METH_VARARGS, "is_realtime():\n  Returns 1 if the JACK subsystem is running with -R (--realtime)"},
   {"port_is_mine",       port_is_mine,            METH_VARARGS, "port_is_mine(port):\n  Returns 1 if port belongs to the running client"},
   {"set_buffer_size",    set_buffer_size,         METH_VARARGS, "set_buffer_size(size):\n  Sets Jack Buffer Size (minimum appears to be 16)."},
