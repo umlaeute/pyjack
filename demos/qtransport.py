@@ -30,7 +30,7 @@ class MainW(QDialog):
 	  jack.transport_locate(pos)
 
     def goForward(self):
-	jack.transport_locate(jack.get_current_transport_frame()+1000000)
+	jack.transport_locate(jack.get_current_transport_frame()+100000)
 
     def play(self):
 	if (self.b_play.isChecked()):

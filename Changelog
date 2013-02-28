@@ -1,5 +1,11 @@
 PyJack Changelog
 
+version 0.4:
+ * Implemented "get_version_string"
+ * Implemented "get_cpu_load"
+ * Implemented "get_port_type"
+ * Implemented "get_port_type_id"
+ * Implemented "is_realtime"
 
 version 0.3:
 * Implemented changes from the clam team branch:  (many thanks!)

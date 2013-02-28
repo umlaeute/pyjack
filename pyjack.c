@@ -838,6 +838,7 @@ static PyObject* get_frame_time(PyObject* self, PyObject* args)
     int frt = jack_frame_time(client->pjc);
     return Py_BuildValue("i", frt);
 }
+
 static PyObject* get_current_transport_frame(PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
@@ -849,6 +850,7 @@ static PyObject* get_current_transport_frame(PyObject* self, PyObject* args)
     int ftr = jack_get_current_transport_frame(client->pjc);
     return Py_BuildValue("i", ftr);
 }
+
 static PyObject* transport_locate (PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
@@ -870,6 +872,7 @@ static PyObject* transport_locate (PyObject* self, PyObject* args)
 
     return Py_None;
 }
+
 static PyObject* get_transport_state (PyObject* self, PyObject* args)
 {
     //int state;
@@ -885,6 +888,89 @@ static PyObject* get_transport_state (PyObject* self, PyObject* args)
 
     return Py_BuildValue("i", transport_state);
 }
+
+// Return Jack version, as string
+static PyObject* get_version_string(PyObject* self, PyObject* args)
+{
+    const char* version;
+    version = jack_get_version_string();
+    return Py_BuildValue("s", version);
+}
+
+static PyObject* get_cpu_load(PyObject* self, PyObject* args)
+{
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+  
+    float cpu_load = jack_cpu_load(client->pjc);
+    
+    return Py_BuildValue("f", cpu_load);
+}
+
+static PyObject* get_port_type(PyObject* self, PyObject* args)
+{
+    char * port_name;
+    
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+    
+    if (! PyArg_ParseTuple(args, "s", &port_name))
+        return NULL;
+    
+    jack_port_t * port = jack_port_by_name(client->pjc, port_name);
+    if (!port_name) {
+        PyErr_SetString(JackUsageError, "Port does not exist.");
+        return NULL;
+    }
+    const char * port_type = jack_port_type(port);
+    
+    return Py_BuildValue("s", port_type);
+}
+
+static PyObject* get_port_type_id(PyObject* self, PyObject* args)
+{
+    char * port_name;
+    
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+    
+    if (! PyArg_ParseTuple(args, "s", &port_name))
+        return NULL;
+    
+    jack_port_t * port = jack_port_by_name(client->pjc, port_name);
+    if (!port_name) {
+        PyErr_SetString(JackUsageError, "Port does not exist.");
+        return NULL;
+    }
+    
+    jack_port_type_id_t port_type_id = jack_port_type_id(port);
+    
+    int ret = port_type_id;
+    return Py_BuildValue("i", ret);
+}
+
+static PyObject* is_realtime(PyObject* self, PyObject* args)
+{
+    pyjack_client_t * client = self_or_global_client(self);
+    if(client->pjc == NULL) {
+        PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
+        return NULL;
+    }
+  
+    int realtime = jack_is_realtime(client->pjc);
+    
+    return Py_BuildValue("i", realtime);
+}
+
 static PyObject* transport_stop (PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
@@ -897,6 +983,7 @@ static PyObject* transport_stop (PyObject* self, PyObject* args)
 
     return Py_None;
 }
+
 static PyObject* transport_start (PyObject* self, PyObject* args)
 {
     pyjack_client_t * client = self_or_global_client(self);
@@ -933,9 +1020,14 @@ static PyMethodDef pyjack_methods[] = {
   {"get_frame_time",     get_frame_time,          METH_VARARGS, "get_frame_time():\n  Get current frame time"},
   {"get_current_transport_frame", get_current_transport_frame,  METH_VARARGS, "get_current_transport_frame():\n  Get current transport frame"},
   {"transport_locate",   transport_locate,        METH_VARARGS, "transport_locate(frame):\n  Set current transport frame"},
-  {"get_transport_state", get_transport_state,    METH_VARARGS, "get_transport_state():\n  Get current transport state"},
+  {"get_transport_state",get_transport_state,     METH_VARARGS, "get_transport_state():\n  Get current transport state"},
   {"transport_stop",     transport_stop,          METH_VARARGS, "transport_stop():\n  Stopping transport"},
   {"transport_start",    transport_start,         METH_VARARGS, "transport_start():\n  Starting transport"},
+  {"get_version_string", get_version_string,      METH_VARARGS, "get_version_string():\n  Returns the version of JACK, in form of a string"},
+  {"get_cpu_load",       get_cpu_load,            METH_VARARGS, "get_cpu_load():\n  Returns the current CPU load estimated by JACK"},
+  {"get_port_type",      get_port_type,           METH_VARARGS, "get_port_type(port):\n  Returns the port type (in a string)"},
+  {"get_port_type_id",   get_port_type_id,        METH_VARARGS, "get_port_type_id(port):\n  Returns the port type id"},
+  {"is_realtime",        is_realtime,             METH_VARARGS, "is_realtime():\n  Check if the JACK subsystem is running with -R (--realtime)"},
   {NULL, NULL}
 };
 

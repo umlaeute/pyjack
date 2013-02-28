@@ -1,3 +1,9 @@
+pyjack (0.4-1~build1) lucid; urgency=low
+
+  * New upstream release
+
+ -- falkTX <falktx@gmail.com>  Wed, 07 Apr 2010 14:44:32 +0100
+
 pyjack (0.3-1~build1) lucid; urgency=low
 
   * New upstream release
