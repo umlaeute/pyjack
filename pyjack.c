@@ -603,19 +603,26 @@ static PyObject* register_port(PyObject* self, PyObject* args)
 }
 
 // Returns a list of all port names registered in the Jack system
-static PyObject* get_ports(PyObject* self, PyObject* args)
+static PyObject* get_ports(PyObject* self, PyObject* args, PyObject*kwds)
 {
+    static char *kwlist[] = {"port_name_pattern", "type_name_pattern", "flags", NULL};
     PyObject* plist;
     const char** jplist;
     int i;
+    char*portpattern=NULL;
+    char*typepattern=NULL;
+    unsigned long flags=0;
 
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc == NULL) {
         PyErr_SetString(JackNotConnectedError, "Jack connection has not yet been established.");
         return NULL;
     }
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "|ssk", kwlist,
+                                      &portpattern, &typepattern, &flags))
+      return NULL;
 
-    jplist = jack_get_ports(client->pjc, NULL, NULL, 0);
+    jplist = jack_get_ports(client->pjc, portpattern, typepattern, flags);
 
     i = 0;
     plist = PyList_New(0);
@@ -1326,9 +1333,9 @@ static PyMethodDef pyjack_methods[] = {
   {"get_client_name",    get_client_name,         METH_VARARGS, "client_name():\n  Returns the actual name of the client"},
   {"register_port",      register_port,           METH_VARARGS, "register_port(name, flags):\n  Register a new port for this client"},
   {"unregister_port",    unregister_port,         METH_VARARGS, "unregister_port(name):\n  Unregister an existing port for this client"},
-  {"get_ports",          get_ports,               METH_VARARGS, "get_ports():\n  Get a list of all ports in the Jack graph"},
+  {"get_ports",          get_ports,               METH_VARARGS|METH_KEYWORDS, "get_ports(port_name_pattern='', type_name_pattern='',flags=0):\n  Get a list of all ports in the Jack graph"},
   {"get_port_flags",     get_port_flags,          METH_VARARGS, "get_port_flags(port):\n  Return flags of a port (flags are bits in an integer)"},
-  {"get_connections",    get_connections,         METH_VARARGS, "get_connections():\n  Get a list of all ports connected to a port"},
+  {"get_connections",    get_connections,         METH_VARARGS, "get_connections(port):\n  Get a list of all ports connected to a port"},
   {"get_buffer_size",    get_buffer_size,         METH_VARARGS, "get_buffer_size():\n  Get the buffer size currently in use"},
   {"get_sample_rate",    get_sample_rate,         METH_VARARGS, "get_sample_rate():\n  Get the sample rate currently in use"},
   {"check_events",       check_events,            METH_VARARGS, "check_events():\n  Check for event notifications"},
