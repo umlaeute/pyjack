@@ -17,6 +17,11 @@ TODO Items
 - Do we need sample rate events?
   Will the sample rate ever change in the middle of a process,
   or is it a fixed value like buffer size?
+  Answer: while buffer size can change in a running jack instance, 
+     sample rate will never change; so we don't need a sr events.
+     (but we might want buffer size events)
+
+- Ability to remove callbacks
   
 - Peak/Power monitoring
    
