@@ -3,7 +3,7 @@
 # Plays a 440.0 Hz test tone for 3 seconds to alsa_pcm:playback_1.
 #
 # Copyright 2003, Andrew W. Schmeder
-# This source code is released under the terms of the GNU Public License.
+# This source code is released under the terms of the GNU Lesser Public License.
 # See LICENSE for the full text of these terms.
 
 import numpy

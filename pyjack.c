@@ -4,7 +4,7 @@
   * Copyright 2003 Andrew W. Schmeder <andy@a2hd.com>
   * Copyright 2010 Filipe Coelho (aka 'falkTX') <falktx@gmail.com>
   *
-  * This source code is released under the terms of the GNU GPL v2.
+  * This source code is released under the terms of the GNU LGPL v2.1.
   * See LICENSE for the full text of these terms.
   */
 

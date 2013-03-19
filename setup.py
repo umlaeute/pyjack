@@ -39,7 +39,7 @@ setup(
 For information about Jack see http://jackaudio.org.  This
 enables a Python program to connect to and interact with pro-audio
 applications which use the Jack Audio Server''',
-    license = "GNU GPL2",
+    license = "GNU LGPL2.1",
     ext_modules = [Extension("jack",
                              ["pyjack.c"],
                              libraries=["jack", "dl"],

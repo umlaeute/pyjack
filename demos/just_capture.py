@@ -3,7 +3,7 @@
 # Capture 3 seconds of stereo audio from alsa_pcm:capture_1/2; then play it back.
 #
 # Copyright 2003, Andrew W. Schmeder
-# This source code is released under the terms of the GNU Public License.
+# This source code is released under the terms of the GNU Lesser Public License.
 # See LICENSE for the full text of these terms.
 
 import numpy
