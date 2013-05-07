@@ -629,12 +629,10 @@ static PyObject* get_ports(PyObject* self, PyObject* args, PyObject*kwds)
     if(jplist != NULL) {
         while(jplist[i] != NULL) {
             PyList_Append(plist, Py_BuildValue("s", jplist[i]));
-            //free(jplist[i]);  // Memory leak or not??
             i++;
         }
     }
-
-    Py_INCREF(plist);
+    jack_free(jplist);
     return plist;
 }
 
@@ -705,8 +703,7 @@ static PyObject* get_connections(PyObject* self, PyObject* args)
             i++;
         }
     }
-
-    Py_INCREF(plist);
+    jack_free(jplist);
     return plist;
 }
 
