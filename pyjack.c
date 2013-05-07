@@ -757,10 +757,13 @@ static int jack_port_connected_to_extern(const pyjack_client_t * client,
     if (existing_connections) {
         int i; // non C99 nonsense
         for (i = 0; existing_connections[i]; i++) {
-            if (strcmp(existing_connections[i], dst_name) == 0)
+            if (strcmp(existing_connections[i], dst_name) == 0) {
+                jack_free(existing_connections);
                 return 1;
+            }
         }
     }
+    jack_free(existing_connections);
     return 0;
 }
 
