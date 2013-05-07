@@ -608,7 +608,7 @@ static PyObject* get_ports(PyObject* self, PyObject* args, PyObject*kwds)
     static char *kwlist[] = {"port_name_pattern", "type_name_pattern", "flags", NULL};
     PyObject* plist;
     const char** jplist;
-    int i;
+    unsigned int count, i;
     char*portpattern=NULL;
     char*typepattern=NULL;
     unsigned long flags=0;
@@ -624,11 +624,16 @@ static PyObject* get_ports(PyObject* self, PyObject* args, PyObject*kwds)
 
     jplist = jack_get_ports(client->pjc, portpattern, typepattern, flags);
 
-    i = 0;
-    plist = PyList_New(0);
+    count = 0;
     if(jplist != NULL) {
+      while(jplist[count] != NULL) count += 1;
+    }
+
+    plist = PyList_New(count);
+    if(jplist != NULL) {
+        i = 0;
         while(jplist[i] != NULL) {
-            PyList_Append(plist, Py_BuildValue("s", jplist[i]));
+            PyList_SET_ITEM(plist, i, Py_BuildValue("s", jplist[i])); // FIXXXME: this leaks memory
             i++;
         }
     }
@@ -675,7 +680,7 @@ static PyObject* get_connections(PyObject* self, PyObject* args)
     const char** jplist;
     jack_port_t* jp;
     PyObject* plist;
-    int i;
+    unsigned int count, i;
 
     pyjack_client_t * client = self_or_global_client(self);
     if(client->pjc == NULL) {
@@ -693,13 +698,16 @@ static PyObject* get_connections(PyObject* self, PyObject* args)
     }
 
     jplist = jack_port_get_all_connections(client->pjc, jp);
-
-    i = 0;
-    plist = PyList_New(0);
+    count = 0;
     if(jplist != NULL) {
+      while(jplist[count] != NULL) count += 1;
+    }
+
+    plist = PyList_New(count);
+    if(jplist != NULL) {
+        i = 0;
         while(jplist[i] != NULL) {
-            PyList_Append(plist, Py_BuildValue("s", jplist[i]));
-            //free(jplist[i]);  // memory leak or not?
+            PyList_SET_ITEM(plist, i, Py_BuildValue("s", jplist[i]));
             i++;
         }
     }
