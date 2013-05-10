@@ -10,7 +10,7 @@ if os.path.exists("/usr/local/include/jack/jack.h"):
 elif os.path.exists("/usr/include/jack/jack.h"):
   path = "/usr/include/jack/jack.h"
 else:
-  print "You don't seem to have the jack headers installed.\nPlease install them first"
+  print("You don't seem to have the jack headers installed.\nPlease install them first")
   exit(-1)
 
 test = open(path).read()
