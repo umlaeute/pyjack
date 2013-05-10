@@ -1485,16 +1485,13 @@ static PyTypeObject pyjack_ClientType = {
 
 
 
-#ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
-#define PyMODINIT_FUNC void
-#endif
-PyMODINIT_FUNC
-initjack(void)
+static PyObject *
+do_initpyjack(void)
 {
   PyObject *m, *d;
 
   if (PyType_Ready(&pyjack_ClientType) < 0)
-    return;
+    return NULL;
   m = Py_InitModule3("jack", pyjack_methods,
 	"This module provides bindings to manage clients for the Jack Audio Connection Kit architecture");
   if (m == NULL)
@@ -1554,8 +1551,26 @@ initjack(void)
   // Init jack data structures
   pyjack_init(&global_client);
 
-  return;
+  return m;
 
 fail:
   Py_FatalError("Failed to initialize module pyjack");
+  return NULL;
 }
+
+
+
+#ifndef PyMODINIT_FUNC  /* declarations for DLL import/export */
+#define PyMODINIT_FUNC void
+#endif
+#if PY_MAJOR_VERSION < 3
+    PyMODINIT_FUNC initjack(void)
+    {
+        do_initpyjack();
+    }
+#else
+    PyMODINIT_FUNC PyInit_jack(void)
+    {
+        return do_initpyjack();
+    }
+#endif
