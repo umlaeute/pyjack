@@ -1492,8 +1492,7 @@ do_initpyjack(void)
 
   if (PyType_Ready(&pyjack_ClientType) < 0)
     return NULL;
-  m = Py_InitModule3("jack", pyjack_methods,
-	"This module provides bindings to manage clients for the Jack Audio Connection Kit architecture");
+  PYJACK_MOD_DEF(m, "jack", "This module provides bindings to manage clients for the Jack Audio Connection Kit architecture", pyjack_methods);
   if (m == NULL)
     goto fail;
   d = PyModule_GetDict(m);
