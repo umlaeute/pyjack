@@ -25,6 +25,28 @@
 #include <fcntl.h>
 #include <signal.h>
 
+/* python compat macros */
+#ifndef PyVarObject_HEAD_INIT
+    #define PyVarObject_HEAD_INIT(type, size) \
+        PyObject_HEAD_INIT(type) size,
+#endif
+#ifndef Py_TYPE
+    #define Py_TYPE(ob) (((PyObject*)(ob))->ob_type)
+#endif
+#if PY_MAJOR_VERSION >= 3
+# define PYJACK_MOD_DEF(ob, name, doc, methods)               \
+  do {                                                        \
+    static struct PyModuleDef moduledef = {                   \
+      PyModuleDef_HEAD_INIT, name, doc, -1, methods, };       \
+    ob = PyModule_Create(&moduledef);                         \
+  } while(0)
+#else
+# define PYJACK_MOD_DEF(ob, name, doc, methods)   \
+  ob = Py_InitModule3(name, methods, doc)
+#endif
+
+
+
 /*
 TODO's:
 - dettach on client on __del__
