@@ -45,6 +45,17 @@
   ob = Py_InitModule3(name, methods, doc)
 #endif
 
+#if PY_MAJOR_VERSION >= 3
+static void* pyjack_importarray(void) {
+  import_array();
+  return NULL;
+}
+#else
+static void pyjack_importarray(void) {
+  import_array();
+}
+#endif
+
 
 
 /*
@@ -1538,10 +1549,8 @@ do_initpyjack(void)
   PyDict_SetItemString(d, "BackendError",  Py_BuildValue("i", JackBackendError));
   PyDict_SetItemString(d, "ClientZombie",  Py_BuildValue("i", JackClientZombie));
 
-
-
   // Enable Numeric module
-  import_array();
+  pyjack_importarray();
 
   if (PyErr_Occurred())
     goto fail;
