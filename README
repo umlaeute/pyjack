@@ -4,7 +4,9 @@ Transport support by Il'dar Akhmetgaleev <akhilman at gmail dot com>, in Jan 14 
 Revision and packaging by falkTX <falktx@gmail.com>, in Feb 2010
 Implemented changes by the Clam Team <falktx@gmail.com>, in Mar 2010
 More Jack implementations by falkTX <falktx@gmail.com>, in Apr 2010
-
+Implemented (most) missing jack functions by IOhannes m zmölnig
+                                             <zmoelnig@iem.at>, in 2013
+Initial Python3 support by IOhannes m zmölnig <zmoelnig@iem.at>, in May 2013
 
 This is open source software released under the GPL license.
 The full text of this license is found in the file 'LICENSE',
