@@ -1493,12 +1493,10 @@ static PyTypeObject pyjack_ClientType = {
     /* tp_new */            Client_new,
 };
 
-
-
 static PyObject *
 do_initpyjack(void)
 {
-  PyObject *m, *d;
+  PyObject *m=NULL, *d=NULL;
 
   if (PyType_Ready(&pyjack_ClientType) < 0)
     return NULL;
