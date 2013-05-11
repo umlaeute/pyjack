@@ -1440,8 +1440,7 @@ Client_dealloc(PyObject* self)
 
 
 static PyTypeObject pyjack_ClientType = {
-    PyObject_HEAD_INIT(NULL)
-    /*ob_size*/             0, 
+  PyVarObject_HEAD_INIT(NULL, 0)
     /*tp_name*/             "jack.Client",
     /*tp_basicsize*/        sizeof(pyjack_client_t),
     /*tp_itemsize*/         0,
