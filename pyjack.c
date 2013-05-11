@@ -1447,7 +1447,7 @@ static void
 Client_dealloc(PyObject* self)
 {
     detach(self, Py_None);
-    self->ob_type->tp_free(self);
+    Py_TYPE(self)->tp_free(self);
 }
 
 
