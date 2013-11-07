@@ -1376,7 +1376,7 @@ static PyMethodDef pyjack_methods[] = {
   {"get_client_name",    get_client_name,         METH_VARARGS, "client_name():\n  Returns the actual name of the client"},
   {"register_port",      register_port,           METH_VARARGS, "register_port(name, flags):\n  Register a new port for this client"},
   {"unregister_port",    unregister_port,         METH_VARARGS, "unregister_port(name):\n  Unregister an existing port for this client"},
-  {"get_ports",          get_ports,               METH_VARARGS|METH_KEYWORDS, "get_ports(port_name_pattern='', type_name_pattern='',flags=0):\n  Get a list of all ports in the Jack graph"},
+  {"get_ports",          (PyCFunction)get_ports,  METH_VARARGS|METH_KEYWORDS, "get_ports(port_name_pattern='', type_name_pattern='',flags=0):\n  Get a list of all ports in the Jack graph"},
   {"get_port_flags",     get_port_flags,          METH_VARARGS, "get_port_flags(port):\n  Return flags of a port (flags are bits in an integer)"},
   {"get_connections",    get_connections,         METH_VARARGS, "get_connections(port):\n  Get a list of all ports connected to a port"},
   {"get_buffer_size",    get_buffer_size,         METH_VARARGS, "get_buffer_size():\n  Get the buffer size currently in use"},
