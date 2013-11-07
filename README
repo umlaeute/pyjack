@@ -8,7 +8,7 @@ Implemented (most) missing jack functions by IOhannes m zmölnig
                                              <zmoelnig@iem.at>, in 2013
 Initial Python3 support by IOhannes m zmölnig <zmoelnig@iem.at>, in May 2013
 
-This is open source software released under the GPL license.
+This is open source software released under the GNU LGPL v2.1.
 The full text of this license is found in the file 'LICENSE',
 included with this source code package.
 
