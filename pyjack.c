@@ -951,25 +951,25 @@ static PyObject* process(PyObject* self, PyObject *args)
     if (! PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &output_array, &PyArray_Type, &input_array))
         return NULL;
 
-    if(input_array->descr->type_num != PyArray_FLOAT || output_array->descr->type_num != PyArray_FLOAT) {
+    if(!PyArray_ISFLOAT(input_array) || !PyArray_ISFLOAT(output_array)) {
         PyErr_SetString(PyExc_ValueError, "arrays must be of type float");
         return NULL;
     }
-    if(input_array->nd != 2 || output_array->nd != 2) {
-        printf("%d, %d\n", input_array->nd, output_array->nd);
+    if(PyArray_NDIM(input_array) != 2 || PyArray_NDIM(output_array) != 2) {
+        printf("%d, %d\n", PyArray_NDIM(input_array), PyArray_NDIM(output_array));
         PyErr_SetString(PyExc_ValueError, "arrays must be two dimensional");
         return NULL;
     }
-    if((client->num_inputs > 0 && input_array->dimensions[1] != client->buffer_size) || 
-       (client->num_outputs > 0 && output_array->dimensions[1] != client->buffer_size)) {
+    if((client->num_inputs > 0 && PyArray_DIM(input_array, 1) != client->buffer_size) ||
+       (client->num_outputs > 0 && PyArray_DIM(output_array, 1) != client->buffer_size)) {
         PyErr_SetString(PyExc_ValueError, "columns of arrays must match buffer size.");
         return NULL;
     }
-    if(client->num_inputs > 0 && input_array->dimensions[0] != client->num_inputs) {
+    if(client->num_inputs > 0 && PyArray_DIM(input_array, 0) != client->num_inputs) {
         PyErr_SetString(PyExc_ValueError, "rows for input array must match number of input ports");
         return NULL;
     }
-    if(client->num_outputs > 0 && output_array->dimensions[0] != client->num_outputs) {
+    if(client->num_outputs > 0 && PyArray_DIM(output_array, 0) != client->num_outputs) {
         PyErr_SetString(PyExc_ValueError, "rows for output array must match number of output ports");
         return NULL;
     }
@@ -984,7 +984,7 @@ static PyObject* process(PyObject* self, PyObject *args)
         for(c = 0; c < client->num_inputs; c++) {
             for(j = 0; j < client->buffer_size; j++) {
                 memcpy(
-                    input_array->data + (c*input_array->strides[0] + j*input_array->strides[1]), 
+                    PyArray_DATA(input_array) + (c*PyArray_STRIDE(input_array, 0) + j*PyArray_STRIDE(input_array, 1)),
                     client->input_buffer_1 + j + (c*client->buffer_size), 
                     sizeof(float)
                 );
@@ -1002,7 +1002,7 @@ static PyObject* process(PyObject* self, PyObject *args)
         for(c = 0; c < client->num_outputs; c++) {
             for(j = 0; j < client->buffer_size; j++) {
                 memcpy(&client->output_buffer_1[j + (c*client->buffer_size)],
-                       output_array->data + c*output_array->strides[0] + j*output_array->strides[1],
+                       PyArray_DATA(output_array) + c*PyArray_STRIDE(output_array, 0) + j*PyArray_STRIDE(output_array, 1),
                        sizeof(float)
                 );
             }
