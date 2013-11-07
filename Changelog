@@ -1,5 +1,22 @@
 PyJack Changelog
 
+version 0.6:
+ * Added wrappers for (most) missing jack-callbacks
+    Implemented "client_registration_callback"
+    Implemented "freewheel_callback"
+    Implemented "graph_order_callback"
+    Implemented "port_connect_callback"
+    Implemented "port_registration_callback"
+    Implemented "sample_rate_callback"
+    Implemented "thread_init_callback"
+ * Wrapped JackStatus codes
+ * Added filter-capabilities for listing ports
+ * Fixed bug when disconnecting multiple connections
+ * Fixed various memleaks
+ * Switched to newer NumPy API
+ * Initial Python3 support
+ * Changed license to LGPL-2.1
+
 version 0.5.2:
  * PyJack never raises JackInputSyncError
  * Get "numpy/arrayobject.h" path from numpy
