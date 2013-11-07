@@ -30,7 +30,7 @@ numpy_include_dirs = numpy.distutils.misc_util.get_numpy_include_dirs()
 
 setup(
     name = "pyjack",
-    version = "0.5.1",
+    version = "0.6",
     description = "Python bindings for the Jack Audio Server",
     author = "Andrew W. Schmeder, falkTX, IOhannes m zmölnig",
     author_email = "andy@a2hd.com",
