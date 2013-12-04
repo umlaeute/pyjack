@@ -123,9 +123,9 @@ typedef struct {
 } pyjack_client_t;
 
 pyjack_client_t global_client;
-
 pyjack_client_t * self_or_global_client(PyObject * self) {
     if (!self) return & global_client;
+    if (PyModule_Check(self)) return & global_client;
     return (pyjack_client_t*) self;
 }
 
@@ -135,7 +135,6 @@ void pyjack_init(pyjack_client_t * client) {
     size_t headsize=(void*)(&client->pjc)-(void*)(client);
     size_t size=sizeof(*client)-headsize;
     memset((void*)(client)+headsize, 0, size );
-
     client->doProcessing=1;
 
     // Initialize unamed, raw datagram-type sockets...
