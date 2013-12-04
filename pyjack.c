@@ -123,9 +123,9 @@ typedef struct {
 } pyjack_client_t;
 
 pyjack_client_t global_client;
-
 pyjack_client_t * self_or_global_client(PyObject * self) {
     if (!self) return & global_client;
+    if (PyModule_Check(self)) return & global_client;
     return (pyjack_client_t*) self;
 }
 
