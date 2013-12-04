@@ -135,7 +135,6 @@ void pyjack_init(pyjack_client_t * client) {
     size_t headsize=(void*)(&client->pjc)-(void*)(client);
     size_t size=sizeof(*client)-headsize;
     memset((void*)(client)+headsize, 0, size );
-
     client->doProcessing=1;
 
     // Initialize unamed, raw datagram-type sockets...
