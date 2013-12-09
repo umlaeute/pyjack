@@ -1,28 +1,44 @@
 PyJack version 0.x
-Original code by Andrew W. Schmeder <andy@a2hd.com>, in2003
+==================
+
+------------------------------------------------------------------------
+Description:
+
+PyJack is a module written in C which exposes the Jack API to Python.
+For information about Jack see http://jackit.sourceforge.net.  This
+enables a Python program to connect to and interact with pro-audio
+applications which use the Jack Audio Server.
+
+
+------------------------------------------------------------------------
+History:
+
+Original code by Andrew W. Schmeder <andy@a2hd.com>, in 2003
 Transport support by Il'dar Akhmetgaleev <akhilman at gmail dot com>, in Jan 14 2008
 Revision and packaging by falkTX <falktx@gmail.com>, in Feb 2010
 Implemented changes by the Clam Team <falktx@gmail.com>, in Mar 2010
 More Jack implementations by falkTX <falktx@gmail.com>, in Apr 2010
-Implemented (most) missing jack functions by IOhannes m zmölnig
-                                             <zmoelnig@iem.at>, in 2013
+Implemented (most) missing jack functions by IOhannes m zmölnig <zmoelnig@iem.at>, in 2013
 Initial Python3 support by IOhannes m zmölnig <zmoelnig@iem.at>, in May 2013
+
+For a more complete history, see the 'Changelog' file.
+
+------------------------------------------------------------------------
+License:
 
 This is open source software released under the GNU LGPL v2.1.
 The full text of this license is found in the file 'LICENSE',
 included with this source code package.
 
-This software is presently distributed from http://www.a2hd.com.
+
+------------------------------------------------------------------------
+Download:
+
+This software is presently distributed from
+   https://sf.net/projects/py-jack/
+
 Please check that site for the latest version.
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-Description:
-
-  PyJack is a module written in C which exposes the Jack API to Python.
-For information about Jack see http://jackit.sourceforge.net.  This
-enables a Python program to connect to and interact with pro-audio
-applications which use the Jack Audio Server.
 
 ------------------------------------------------------------------------
 Purpose:
@@ -36,6 +52,21 @@ means to capture and playback audio.
 -  For patchbay applications; A powerful Jack patchbay can be written
 in Python using this module.  This is planned for the future.
 
+
+------------------------------------------------------------------------
+Contribution:
+
+PyJack is Open Source software.
+If you want to contribute to the project, with code, documentation, bug-reports,
+feature-requests, bells or whistles, you are very welcome to do so.
+
+If you want to hack on the code, why not clone the project on github?
+   https://github.com/umlaeute/pyjack
+
+For reporting any issues, you can use our tracker:
+   https://github.com/umlaeute/pyjack/issues
+
+
 ------------------------------------------------------------------------
 Installation:
 
@@ -46,11 +77,13 @@ Installation:
 # cd pyjack-0.*                         (cd to source dir)
 # (sudo) python setup.py install        (install...)
 
+
 ------------------------------------------------------------------------
 Demos:
 
   Demos can be found in the "demos" directory
   
+
 ------------------------------------------------------------------------
 Realtime Issues:
 
@@ -89,6 +122,7 @@ prototyping program:
   6.  Detach from jack server (jack.detach)
 
   See the example code to get started; testtone.py and capture.py.
+
 
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
