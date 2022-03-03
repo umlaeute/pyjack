@@ -131,7 +131,7 @@ pyjack_client_t * self_or_global_client(PyObject * self) {
 
 // Initialize global data
 void pyjack_init(pyjack_client_t * client) {
-    // Init everything to to null...
+    // Init everything to null...
     size_t headsize=(void*)(&client->pjc)-(void*)(client);
     size_t size=sizeof(*client)-headsize;
     memset((void*)(client)+headsize, 0, size );
